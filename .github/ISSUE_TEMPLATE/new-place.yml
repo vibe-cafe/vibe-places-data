@@ -27,7 +27,7 @@ body:
       required: true
       
   - type: input
-    id: address
+    id: address_text
     attributes:
       label: 详细地址
       description: 完整的地址信息
@@ -36,14 +36,32 @@ body:
       required: true
       
   - type: input
-    id: cost
+    id: latitude
+    attributes:
+      label: 纬度
+      description: 地点的纬度坐标（可通过高德地图/百度地图获取）
+      placeholder: 例如：39.9787231
+    validations:
+      required: true
+      
+  - type: input
+    id: longitude
+    attributes:
+      label: 经度
+      description: 地点的经度坐标（可通过高德地图/百度地图获取）
+      placeholder: 例如：116.4668031
+    validations:
+      required: true
+      
+  - type: input
+    id: cost_per_person
     attributes:
       label: 人均消费
       description: 大约的人均消费（元）
       placeholder: 例如：45
       
   - type: input
-    id: hours
+    id: opening_hours
     attributes:
       label: 营业时间
       description: 格式：HH:MM-HH:MM
@@ -69,10 +87,10 @@ body:
       required: true
       
   - type: checkboxes
-    id: standards
+    id: amenities
     attributes:
-      label: 收录标准确认
-      description: 请确认该地点符合以下标准
+      label: 设施与环境
+      description: 请选择该地点提供的设施和环境特征
       options:
         - label: 有稳定的 WiFi 网络
           required: true
