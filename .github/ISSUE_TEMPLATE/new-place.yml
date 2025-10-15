@@ -90,16 +90,12 @@ body:
     id: amenities
     attributes:
       label: 设施与环境
-      description: 请选择该地点提供的设施和环境特征
+      description: 请勾选该地点具备的设施和环境特征
       options:
         - label: 有稳定的 WiFi 网络
-          required: true
-        - label: 提供舒适的座位和工作环境
-          required: true
+        - label: 桌子、座椅舒适
         - label: 允许长时间停留工作
-          required: true
         - label: 有电源插座可用
-          required: true
-        - label: 环境相对安静，适合专注工作
-          required: true
+        - label: 环境相对安静
+        - label: 店内有洗手间
 
