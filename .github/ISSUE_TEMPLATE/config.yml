@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 提问或建议
+    url: https://github.com/vibe-cafe/vibe-places-data/discussions
+    about: 如有疑问或建议，请在 Discussions 中讨论
+  - name: 🌐 VibeCafé 官网
+    url: https://vibecafe.ai
+    about: 访问 VibeCafé 官方网站
+

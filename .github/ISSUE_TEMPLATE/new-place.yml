@@ -1,0 +1,87 @@
+name: 🏠 添加新地点
+description: 推荐一个适合 Vibe Friends 的创作空间
+title: "[新地点] "
+labels: ["new-place"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢推荐新地点！请填写以下信息，我们会尽快审核并添加。
+        
+  - type: input
+    id: title
+    attributes:
+      label: 地点名称
+      description: 咖啡厅、共享空间、图书馆等的名称
+      placeholder: 例如：南五咖啡
+    validations:
+      required: true
+      
+  - type: textarea
+    id: description
+    attributes:
+      label: 地点描述
+      description: 简单介绍这个地点的特色（50-200字）
+      placeholder: 例如：望京地区的精品咖啡店，环境舒适，适合工作和创作
+    validations:
+      required: true
+      
+  - type: input
+    id: address
+    attributes:
+      label: 详细地址
+      description: 完整的地址信息
+      placeholder: 例如：北京市朝阳区花家地南街花家地南里5号楼临街底商
+    validations:
+      required: true
+      
+  - type: input
+    id: cost
+    attributes:
+      label: 人均消费
+      description: 大约的人均消费（元）
+      placeholder: 例如：45
+      
+  - type: input
+    id: hours
+    attributes:
+      label: 营业时间
+      description: 格式：HH:MM-HH:MM
+      placeholder: 例如：08:00-22:00
+      
+  - type: input
+    id: link
+    attributes:
+      label: 相关链接（可选）
+      description: 官网、大众点评、小红书等
+      placeholder: https://...
+      
+  - type: textarea
+    id: image
+    attributes:
+      label: 地点照片
+      description: |
+        请上传一张展示地点环境的照片（拖拽图片到此处）
+        - 格式：JPG 或 PNG
+        - 建议尺寸：1200x800
+        - 文件大小：< 500KB
+    validations:
+      required: true
+      
+  - type: checkboxes
+    id: standards
+    attributes:
+      label: 收录标准确认
+      description: 请确认该地点符合以下标准
+      options:
+        - label: 有稳定的 WiFi 网络
+          required: true
+        - label: 提供舒适的座位和工作环境
+          required: true
+        - label: 允许长时间停留工作
+          required: true
+        - label: 有电源插座可用
+          required: true
+        - label: 环境相对安静，适合专注工作
+          required: true
+
