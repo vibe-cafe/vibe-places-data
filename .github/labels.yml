@@ -1,0 +1,27 @@
+# Issue Labels Configuration
+# 可以使用 https://github.com/marketplace/actions/github-labeler 自动同步
+
+# 类型标签
+- name: "新增地点"
+  color: "0E8A16"
+  description: "推荐添加新的创作空间"
+  aliases: ["new-place"]
+
+- name: "更新信息"
+  color: "1D76DB"
+  description: "更新已有地点的信息"
+  aliases: ["update"]
+
+# 状态标签
+- name: "待审核"
+  color: "FBCA04"
+  description: "等待管理员审核"
+
+- name: "通过"
+  color: "0E8A16"
+  description: "审核通过，已添加到数据库"
+
+- name: "拒绝"
+  color: "D93F0B"
+  description: "审核未通过"
+
