@@ -7,7 +7,7 @@
   description: "推荐添加新的创作空间"
   aliases: ["new-place"]
 
-- name: "更新信息"
+- name: "更新地点"
   color: "1D76DB"
   description: "更新已有地点的信息"
   aliases: ["update"]
