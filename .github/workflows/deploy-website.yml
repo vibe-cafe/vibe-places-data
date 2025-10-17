@@ -1,0 +1,25 @@
+name: Deploy Vibe Cafe Website
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'data/**'
+      - 'images/**'
+
+jobs:
+  trigger-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deployment
+        run: |
+          curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+
+      - name: Notify deployment triggered
+        run: |
+          echo "✅ Deployment triggered successfully!"
+          echo "🌐 Website will update in 2-3 minutes"
+

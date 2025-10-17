@@ -15,3 +15,7 @@ images/{id}/main.jpg  # 地点图片
 - [✏️ 更新地点信息](../../issues/new?template=update-place.yml)
 
 填写表单即可，我们会审核后添加
+
+## 自动部署
+
+合并到 `main` 分支后，会自动触发 [vibecafe.ai](https://vibecafe.ai) 网站重新部署，2-3 分钟内更新生效 ✨
