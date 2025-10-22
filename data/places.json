@@ -132,5 +132,29 @@
     "opening_hours": "11:00-19:00",
     "link": "https://www.xiaohongshu.com/user/profile/548250cfe779893bd13f7ecd",
     "image": "4f9b2a6c-7d8e-4f1a-9c3b-2e6f7a8d9c0/main.jpg"
+  },
+  {
+    "id": "f76c4869-c772-42f0-b0e0-3a991c49a076",
+    "title": "小雷因咖啡",
+    "description": "位于朝阳区双井/百子湾的这家书店咖啡厅非常适合办公与自习。两层空间宽敞明亮，座位多且几乎每张桌子都有插座，办公友好。提供三明治等简餐，满足就餐需求。工作日下午人较多但仍能找到座位。整体环境温暖安静，虽偶有线上会议声，但不影响专注。装修风格明亮舒适，是值得推荐的自习咖啡厅。",
+    "address_text": "朝阳区百子湾南二路76号乐成国际5-7号(近双井家乐福)",
+    "latitude": 39.896774,
+    "longitude": 116.471631,
+    "cost_per_person": 47,
+    "opening_hours": "08:00-22:00",
+    "link": "",
+    "image": "f76c4869-c772-42f0-b0e0-3a991c49a076/main.jpg"
+  },
+  {
+    "id": "85e3d3b3-ee9e-4efc-879c-ee272db43e73",
+    "title": "AOKKA COFFEE(灿星店)",
+    "description": "一家主打露营风格的咖啡馆，环境舒适，适合 Vibe Coding。咖啡馆中间有个大长桌，也适合弄一个小聚会。",
+    "address_text": "上海市徐汇区龙启路158号灿星大厦地下一层下沉式广场B1-16-17",
+    "latitude": 39.896807,
+    "longitude": 116.471631,
+    "cost_per_person": 35,
+    "opening_hours": "08:00-18:00",
+    "link": "https://m.dianping.com/shopinfo/kawzBdNgR3y1iP7y",
+    "image": "85e3d3b3-ee9e-4efc-879c-ee272db43e73/main.jpg"
   }
 ]
