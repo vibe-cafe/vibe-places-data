@@ -17,14 +17,12 @@ body:
     validations:
       required: true
       
-  - type: textarea
+  - type: input
     id: description
     attributes:
-      label: 地点描述
-      description: 简单介绍这个地点的特色（50-200字）
+      label: 地点描述（可选）
+      description: 简单介绍这个地点的特色
       placeholder: 例如：望京地区的精品咖啡店，环境舒适，适合工作和创作
-    validations:
-      required: true
       
   - type: input
     id: address_text
@@ -38,28 +36,28 @@ body:
   - type: input
     id: latitude
     attributes:
-      label: 纬度
+      label: 纬度（可选）
       description: 地点的纬度坐标（可通过高德地图/百度地图获取）
       placeholder: 例如：39.9787231
       
   - type: input
     id: longitude
     attributes:
-      label: 经度
+      label: 经度（可选）
       description: 地点的经度坐标（可通过高德地图/百度地图获取）
       placeholder: 例如：116.4668031
       
   - type: input
     id: cost_per_person
     attributes:
-      label: 人均消费
+      label: 人均消费（可选）
       description: 大约的人均消费（元）
       placeholder: 例如：45
       
   - type: input
     id: opening_hours
     attributes:
-      label: 营业时间
+      label: 营业时间（可选）
       description: 格式：HH:MM-HH:MM
       placeholder: 例如：08:00-22:00
       
