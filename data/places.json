@@ -94,8 +94,7 @@
     "opening_hours": "09:00-19:00",
     "link": "",
     "image": "1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p/main.jpg"
-  }
-  ,
+  },
   {
     "id": "d9f8c7b6-a5e4-4d3c-9b2a-1f0e9d8c7b6a",
     "title": "宾森咖啡",
@@ -119,8 +118,7 @@
     "opening_hours": "周二至周日 10:00-20:00，周一闭馆",
     "link": "https://bjlib.clcn.net.cn/",
     "image": "3b9f1c2d-6a4e-4b3d-9f8e-1a2b3c4d5e6f/main.jpg"
-  }
-  ,
+  },
   {
     "id": "4f9b2a6c-7d8e-4f1a-9c3b-2e6f7a8d9c0",
     "title": "法兰绒咖啡（太阳宫店）",
@@ -156,6 +154,18 @@
     "opening_hours": "08:00-18:00",
     "link": "https://m.dianping.com/shopinfo/jnh2cIw5IleCW7yy",
     "image": "85e3d3b3-ee9e-4efc-879c-ee272db43e73/main.jpg"
+  },
+  {
+    "id": "shucha-zhongguancun",
+    "title": "書茶（书茶）",
+    "description": "咖啡书吧，装修风格有图书馆自习室的感觉，很温馨，有包间，有咖啡简餐提供，充斥着大学生和创业者投资人",
+    "address_text": "北京市海淀区中关村创业大街",
+    "latitude": 39.983356,
+    "longitude": 116.307049,
+    "cost_per_person": 35,
+    "opening_hours": "08:30-20:00",
+    "link": "https://m.dianping.com/shopinfo/H80wGktRMT6V0XL9",
+    "image": "shucha-zhongguancun/main.png"
   }
 ]
 
