@@ -166,6 +166,18 @@
     "opening_hours": "08:30-20:00",
     "link": "https://m.dianping.com/shopinfo/H80wGktRMT6V0XL9",
     "image": "shucha-zhongguancun/main.png"
+  },
+  {
+    "id": "wulou-coffee-dongcheng",
+    "title": "伍楼咖啡",
+    "description": "景色极佳的咖啡厅，有室内也有露台，可以遥看整个国贸景色。设施：有稳定的 WiFi 网络，桌子、座椅舒适，允许长时间停留工作，有电源插座可用，环境相对安静，店内有洗手间",
+    "address_text": "东四南大街15号17号5层花园顶楼天台",
+    "latitude": 39.922939,
+    "longitude": 116.417317,
+    "cost_per_person": 51,
+    "opening_hours": "11:00-20:00",
+    "link": "",
+    "image": "wulou-coffee-dongcheng/main.jpg"
   }
 ]
 
