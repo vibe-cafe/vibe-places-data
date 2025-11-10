@@ -354,40 +354,7 @@ function updatePlacesJson(places, newPlace, isUpdate, existingPlace) {
   }
 }
 
-// Create PR
-async function createPR(place, isUpdate, branchName) {
-  const title = isUpdate ? `Update: ${place.title}` : `Add: ${place.title}`;
-  const body = isUpdate 
-    ? `Updates place information for "${place.title}"\n\nCloses #${ISSUE_NUMBER}`
-    : `Adds new place: "${place.title}"\n\nCloses #${ISSUE_NUMBER}`;
-
-  try {
-    const response = await githubRequest('/pulls', 'POST', {
-      title,
-      body,
-      head: branchName,
-      base: 'main'
-    });
-
-    const prNumber = response.data.number;
-
-    // Assign reviewer (repository owner)
-    try {
-      await githubRequest(`/pulls/${prNumber}/requested_reviewers`, 'POST', {
-        reviewers: [REPO_OWNER]
-      });
-    } catch (e) {
-      console.warn('Failed to assign reviewer:', e.message);
-    }
-
-    return prNumber;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(`Failed to create PR: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-    }
-    throw error;
-  }
-}
+// PR creation is now handled by GitHub Actions workflow step (better permissions)
 
 // Main execution
 async function main() {
@@ -450,22 +417,23 @@ async function main() {
     execSync(`git commit -m "${isUpdate ? 'Update' : 'Add'}: ${place.title}"`, { stdio: 'inherit' });
     execSync(`git push origin ${branchName}`, { stdio: 'inherit' });
     
-    // Create PR
-    console.log('Creating PR...');
-    const prNumber = await createPR(place, isUpdate, branchName);
-    
-    // Set outputs for GitHub Actions
+    // Set outputs for GitHub Actions (PR will be created by workflow step)
     const outputFile = process.env.GITHUB_OUTPUT;
     if (outputFile) {
-      fs.appendFileSync(outputFile, `pr_number=${prNumber}\n`);
+      fs.appendFileSync(outputFile, `branch_name=${branchName}\n`);
+      fs.appendFileSync(outputFile, `place_title=${place.title.replace(/\n/g, ' ')}\n`);
+      fs.appendFileSync(outputFile, `is_update=${isUpdate}\n`);
       fs.appendFileSync(outputFile, `error=false\n`);
     } else {
       // Fallback for local testing
-      console.log(`::set-output name=pr_number::${prNumber}`);
+      console.log(`::set-output name=branch_name::${branchName}`);
+      console.log(`::set-output name=place_title::${place.title}`);
+      console.log(`::set-output name=is_update::${isUpdate}`);
       console.log(`::set-output name=error::false`);
     }
     
-    console.log(`✅ Successfully created PR #${prNumber}`);
+    console.log(`✅ Successfully created branch: ${branchName}`);
+    console.log(`✅ PR will be created by workflow step`);
     
   } catch (error) {
     console.error('Error:', error.message);
