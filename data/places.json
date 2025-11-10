@@ -178,7 +178,25 @@
     "opening_hours": "11:00-20:00",
     "link": "",
     "image": "wulou-coffee-dongcheng/main.jpg"
+  },
+  {
+    "id": "a",
+    "title": "原点学堂（东升大厦A座）",
+    "description": "位于清华东门东升大厦A座顶楼，空间开放舒适，离清北五道口都很近，适合工作、交流",
+    "address_text": "北京市海淀区中关村东路8号F9-10",
+    "latitude": 39.993943,
+    "longitude": 116.33342,
+    "cost_per_person": 30,
+    "opening_hours": "00:00-24:00",
+    "link": "",
+    "image": "a/main.jpg",
+    "amenities": [
+      "有稳定的 WiFi 网络",
+      "桌子、座椅舒适",
+      "允许长时间停留工作",
+      "有电源插座可用",
+      "环境相对安静",
+      "店内有洗手间"
+    ]
   }
 ]
-
-
