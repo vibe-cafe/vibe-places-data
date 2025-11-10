@@ -54,33 +54,23 @@ async function githubRequest(endpoint, method = 'GET', data = null) {
   return axios(config);
 }
 
-// Generate slug from title
-function generateSlug(title) {
-  return title
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
+// Generate UUID v4
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
-// Check if slug exists in places.json
-function slugExists(slug, places) {
-  return places.some(p => p.id === slug || p.id.startsWith(slug + '-'));
-}
-
-// Generate unique slug
-function generateUniqueSlug(title, places) {
-  let slug = generateSlug(title);
-  let counter = 1;
-  let finalSlug = slug;
-  
-  while (slugExists(finalSlug, places)) {
-    finalSlug = `${slug}-${Math.random().toString(36).substring(2, 8)}`;
-    counter++;
+// Generate unique UUID (check for duplicates, though extremely unlikely)
+function generateUniqueID(places) {
+  let id = generateUUID();
+  // Check for duplicates (very unlikely but safe)
+  while (places.some(p => p.id === id)) {
+    id = generateUUID();
   }
-  
-  return finalSlug;
+  return id;
 }
 
 // Parse issue body to extract form data
@@ -337,7 +327,7 @@ function updatePlacesJson(places, newPlace, isUpdate, existingPlace) {
   } else {
     // Add new place
     const place = {
-      id: generateUniqueSlug(newPlace.title, places),
+      id: generateUniqueID(places),
       title: newPlace.title,
       description: newPlace.description || '',
       address_text: newPlace.address_text,
