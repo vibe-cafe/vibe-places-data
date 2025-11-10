@@ -47,6 +47,26 @@ The auto issue resolver workflow:
    - Name: `OPENROUTER_MODEL`
    - Value: e.g., `x-ai/grok-code-fast-1` (default), `openai/gpt-4o-mini`, `anthropic/claude-3-haiku`, `google/gemini-flash-1.5`
 
+3. **Create Personal Access Token (Required for PR Creation)**
+   
+   GitHub Actions has restrictions on creating PRs. You need a Personal Access Token:
+   
+   - Go to [GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)](https://github.com/settings/tokens)
+   - Click **Generate new token (classic)**
+   - Name: `vibe-places-data-auto-resolver`
+   - Select scopes:
+     - ✅ `repo` (Full control of private repositories)
+     - ✅ `workflow` (Update GitHub Action workflows)
+   - Click **Generate token**
+   - **Copy the token immediately** (you won't see it again!)
+   - Go back to repository secrets: `https://github.com/vibe-cafe/vibe-places-data/settings/secrets/actions`
+   - Click **New repository secret**
+   - Name: `GITHUB_PAT`
+   - Value: Paste your Personal Access Token
+   - Click **Add secret**
+   
+   **Important:** The workflow will use `GITHUB_PAT` if available, otherwise fall back to `GITHUB_TOKEN` (which may not work for PR creation).
+
 **Popular OpenRouter Models:**
 - `x-ai/grok-code-fast-1` - Fast and optimized for code/data extraction (default)
 - `openai/gpt-4o-mini` - Fast and cheap

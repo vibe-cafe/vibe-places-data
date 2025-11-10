@@ -36,6 +36,11 @@ Add secrets:
 - **Name:** `OPENROUTER_MODEL`
 - **Value:** e.g., `x-ai/grok-code-fast-1` (default), `openai/gpt-4o-mini`, `anthropic/claude-3-haiku`, `google/gemini-flash-1.5`
 
+**Required for PR Creation:**
+- **Name:** `GITHUB_PAT`
+- **Value:** Personal Access Token with `repo` scope
+- **How to create:** https://github.com/settings/tokens → Generate new token (classic) → Select `repo` scope
+
 ### Option 2: Using OpenAI Direct
 
 Go to: `https://github.com/vibe-cafe/vibe-places-data/settings/secrets/actions`
