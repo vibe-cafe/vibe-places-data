@@ -61,11 +61,11 @@ The auto issue resolver workflow:
    - **Copy the token immediately** (you won't see it again!)
    - Go back to repository secrets: `https://github.com/vibe-cafe/vibe-places-data/settings/secrets/actions`
    - Click **New repository secret**
-   - Name: `GITHUB_PAT`
+   - Name: `GH_PAT`
    - Value: Paste your Personal Access Token
    - Click **Add secret**
    
-   **Important:** The workflow will use `GITHUB_PAT` if available, otherwise fall back to `GITHUB_TOKEN` (which may not work for PR creation).
+   **Important:** The workflow will use `GH_PAT` if available, otherwise fall back to `GITHUB_TOKEN` (which may not work for PR creation).
 
 **Popular OpenRouter Models:**
 - `x-ai/grok-code-fast-1` - Fast and optimized for code/data extraction (default)

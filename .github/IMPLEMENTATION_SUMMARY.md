@@ -37,7 +37,7 @@ Add secrets:
 - **Value:** e.g., `x-ai/grok-code-fast-1` (default), `openai/gpt-4o-mini`, `anthropic/claude-3-haiku`, `google/gemini-flash-1.5`
 
 **Required for PR Creation:**
-- **Name:** `GITHUB_PAT`
+- **Name:** `GH_PAT`
 - **Value:** Personal Access Token with `repo` scope
 - **How to create:** https://github.com/settings/tokens → Generate new token (classic) → Select `repo` scope
 
