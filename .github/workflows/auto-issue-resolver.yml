@@ -1,0 +1,117 @@
+name: Auto Issue Resolver
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  check-labels:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    outputs:
+      should-process: ${{ steps.check.outputs.should-process }}
+    steps:
+      - name: Check if issue has required labels
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const labels = issue.labels.map(l => l.name);
+            const hasPendingReview = labels.includes('待审核');
+            const hasNewPlace = labels.includes('新增地点');
+            const hasUpdatePlace = labels.includes('更新地点');
+            
+            const shouldProcess = hasPendingReview && (hasNewPlace || hasUpdatePlace);
+            core.setOutput('should-process', shouldProcess);
+            
+            if (shouldProcess) {
+              console.log('Issue has required labels, will process');
+            } else {
+              console.log('Issue does not have required labels, skipping');
+            }
+
+  process-issue:
+    needs: check-labels
+    if: needs.check-labels.outputs.should-process == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm install axios
+
+      - name: Process issue and create PR
+        id: process
+        env:
+          # Use OpenRouter if available, otherwise OpenAI
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL || 'x-ai/grok-code-fast-1' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          node .github/scripts/process-issue.js
+
+      - name: Comment on issue
+        if: steps.process.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = '${{ steps.process.outputs.pr_number }}';
+            const issueNumber = ${{ github.event.issue.number }};
+            const prUrl = `https://github.com/${{ github.repository }}/pull/${prNumber}`;
+            
+            github.rest.issues.createComment({
+              issue_number: issueNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ 已自动创建 Pull Request: #${prNumber}\n\n请查看并审核: ${prUrl}`
+            });
+
+      - name: Comment on error
+        if: steps.process.outputs.error == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const errorMsg = `${{ steps.process.outputs.error_message }}`;
+            github.rest.issues.createComment({
+              issue_number: ${{ github.event.issue.number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ 处理问题时出错:\n\n\`\`\`\n${errorMsg}\n\`\`\`\n\n已通知维护者。`
+            });
+
+      - name: Notify maintainer on error
+        if: steps.process.outputs.error == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const errorMsg = `${{ steps.process.outputs.error_message }}`;
+            const issueUrl = `https://github.com/${{ github.repository }}/issues/${{ github.event.issue.number }}`;
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Auto Resolver Error] Issue #${{ github.event.issue.number }}`,
+              body: `处理 Issue #${{ github.event.issue.number }} 时出错:\n\n${errorMsg}\n\nIssue: ${issueUrl}`,
+              labels: ['bug']
+            });
+

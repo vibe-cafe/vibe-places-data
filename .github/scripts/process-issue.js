@@ -1,0 +1,485 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+const axios = require('axios');
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'x-ai/grok-code-fast-1';
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const ISSUE_NUMBER = process.env.ISSUE_NUMBER;
+const ISSUE_BODY = process.env.ISSUE_BODY;
+const ISSUE_TITLE = process.env.ISSUE_TITLE;
+const REPO_OWNER = process.env.REPO_OWNER;
+const REPO_NAME = process.env.REPO_NAME;
+
+// Use OpenRouter if available, otherwise fall back to OpenAI
+const USE_OPENROUTER = !!OPENROUTER_API_KEY;
+const AI_API_KEY = USE_OPENROUTER ? OPENROUTER_API_KEY : OPENAI_API_KEY;
+
+if (!AI_API_KEY) {
+  console.error('Neither OPENROUTER_API_KEY nor OPENAI_API_KEY is set');
+  console.error('Please set one of them in repository secrets');
+  process.exit(1);
+}
+
+if (!GITHUB_TOKEN) {
+  console.error('GITHUB_TOKEN is not set');
+  process.exit(1);
+}
+
+if (USE_OPENROUTER) {
+  console.log(`Using OpenRouter API with model: ${OPENROUTER_MODEL}`);
+} else {
+  console.log('Using OpenAI API');
+}
+
+// Helper function to make GitHub API requests
+async function githubRequest(endpoint, method = 'GET', data = null) {
+  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}${endpoint}`;
+  const config = {
+    method,
+    url,
+    headers: {
+      'Authorization': `token ${GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'GitHub-Actions'
+    }
+  };
+  if (data) {
+    config.data = data;
+  }
+  return axios(config);
+}
+
+// Generate slug from title
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
+// Check if slug exists in places.json
+function slugExists(slug, places) {
+  return places.some(p => p.id === slug || p.id.startsWith(slug + '-'));
+}
+
+// Generate unique slug
+function generateUniqueSlug(title, places) {
+  let slug = generateSlug(title);
+  let counter = 1;
+  let finalSlug = slug;
+  
+  while (slugExists(finalSlug, places)) {
+    finalSlug = `${slug}-${Math.random().toString(36).substring(2, 8)}`;
+    counter++;
+  }
+  
+  return finalSlug;
+}
+
+// Parse issue body to extract form data
+function parseIssueBody(body) {
+  const data = {};
+  const lines = body.split('\n');
+  let currentField = null;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Match field labels (### or **)
+    const fieldMatch = line.match(/^(?:###|\*\*)\s*(.+?)(?:\*\*)?$/);
+    if (fieldMatch) {
+      const fieldName = fieldMatch[1].trim();
+      // Map Chinese labels to field names
+      if (fieldName.includes('地点名称') || fieldName.includes('名称')) {
+        currentField = 'title';
+      } else if (fieldName.includes('描述')) {
+        currentField = 'description';
+      } else if (fieldName.includes('地址')) {
+        currentField = 'address_text';
+      } else if (fieldName.includes('纬度')) {
+        currentField = 'latitude';
+      } else if (fieldName.includes('经度')) {
+        currentField = 'longitude';
+      } else if (fieldName.includes('人均消费') || fieldName.includes('消费')) {
+        currentField = 'cost_per_person';
+      } else if (fieldName.includes('营业时间') || fieldName.includes('时间')) {
+        currentField = 'opening_hours';
+      } else if (fieldName.includes('链接') || fieldName.includes('link')) {
+        currentField = 'link';
+      } else if (fieldName.includes('照片') || fieldName.includes('图片') || fieldName.includes('image')) {
+        currentField = 'image';
+      } else if (fieldName.includes('设施') || fieldName.includes('amenities')) {
+        currentField = 'amenities';
+      } else {
+        currentField = null;
+      }
+      continue;
+    }
+    
+    // Extract value
+    if (currentField && line && !line.startsWith('###') && !line.startsWith('**')) {
+      if (!data[currentField]) {
+        data[currentField] = line;
+      } else {
+        data[currentField] += '\n' + line;
+      }
+    }
+  }
+  
+  return data;
+}
+
+// Use AI to extract and validate place data
+async function extractPlaceDataWithAI(issueBody, issueTitle, isUpdate) {
+  const systemPrompt = isUpdate 
+    ? `You are a data extraction assistant. Extract place update information from a GitHub issue form.
+Return a JSON object with the following structure:
+{
+  "place_name": "name of the place to update",
+  "updates": {
+    "description": "updated description if provided",
+    "address_text": "updated address if provided",
+    "latitude": number or null,
+    "longitude": number or null,
+    "cost_per_person": number or null,
+    "opening_hours": "HH:MM-HH:MM format or null",
+    "link": "url or empty string",
+    "amenities": ["array of amenities if provided"]
+  }
+}
+Only include fields that are being updated. Validate coordinates are numbers. Return only valid JSON.`
+    : `You are a data extraction assistant. Extract place information from a GitHub issue form.
+Return a JSON object with the following structure:
+{
+  "title": "place name (required)",
+  "description": "description or empty string",
+  "address_text": "full address (required)",
+  "latitude": number or null,
+  "longitude": number or null,
+  "cost_per_person": number or null,
+  "opening_hours": "HH:MM-HH:MM format or null",
+  "link": "url or empty string",
+  "amenities": ["array of selected amenities"]
+}
+Validate that required fields are present. Validate coordinates are numbers. Return only valid JSON.`;
+
+  const userPrompt = `Extract place data from this GitHub issue:\n\nTitle: ${issueTitle}\n\nBody:\n${issueBody}`;
+
+  try {
+    // Choose API endpoint and model
+    const apiUrl = USE_OPENROUTER 
+      ? 'https://openrouter.ai/api/v1/chat/completions'
+      : 'https://api.openai.com/v1/chat/completions';
+    
+    const model = USE_OPENROUTER ? OPENROUTER_MODEL : 'gpt-4o-mini';
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${AI_API_KEY}`
+    };
+    
+    // OpenRouter recommends HTTP-Referer header
+    if (USE_OPENROUTER) {
+      headers['HTTP-Referer'] = `https://github.com/${REPO_OWNER}/${REPO_NAME}`;
+      headers['X-Title'] = 'Vibe Places Data Auto Resolver';
+    }
+    
+    const response = await axios.post(
+      apiUrl,
+      {
+        model: model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.3,
+        response_format: { type: 'json_object' }
+      },
+      { headers }
+    );
+
+    if (response.data.error) {
+      const apiName = USE_OPENROUTER ? 'OpenRouter' : 'OpenAI';
+      throw new Error(`${apiName} API error: ${response.data.error.message}`);
+    }
+
+    const content = response.data.choices[0].message.content;
+    return JSON.parse(content);
+  } catch (error) {
+    if (error.response) {
+      const apiName = USE_OPENROUTER ? 'OpenRouter' : 'OpenAI';
+      throw new Error(`${apiName} API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+    }
+    throw error;
+  }
+}
+
+// Download image from issue
+async function downloadImageFromIssue(imageUrl, imagePath) {
+  try {
+    const response = await axios({
+      method: 'GET',
+      url: imageUrl,
+      responseType: 'stream',
+      headers: {
+        'User-Agent': 'GitHub-Actions'
+      }
+    });
+    
+    const writer = fs.createWriteStream(imagePath);
+    response.data.pipe(writer);
+    
+    return new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+  } catch (error) {
+    throw new Error(`Failed to download image: ${error.message}`);
+  }
+}
+
+// Get image URL from issue
+async function getImageFromIssue() {
+  try {
+    // Get issue comments to find image attachments
+    const commentsResponse = await githubRequest(`/issues/${ISSUE_NUMBER}/comments`);
+    const comments = commentsResponse.data;
+    
+    // Check all comments for image URLs
+    for (const comment of comments) {
+      const body = comment.body;
+      // Match GitHub image URLs (user-images.githubusercontent.com)
+      const imageMatch = body.match(/https:\/\/user-images\.githubusercontent\.com\/[^\s\)]+/);
+      if (imageMatch) {
+        return imageMatch[0];
+      }
+    }
+    
+    // Check issue body for images
+    const imageMatch = ISSUE_BODY.match(/https:\/\/user-images\.githubusercontent\.com\/[^\s\)]+/);
+    if (imageMatch) {
+      return imageMatch[0];
+    }
+    
+    // Try markdown image syntax
+    const markdownMatch = ISSUE_BODY.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
+    if (markdownMatch) {
+      return markdownMatch[1];
+    }
+    
+    // Try GitHub raw content URLs
+    const rawMatch = ISSUE_BODY.match(/https:\/\/.*?github\.com\/.*?\/raw\/.*?\/(.+\.(jpg|jpeg|png))/i);
+    if (rawMatch) {
+      return rawMatch[0];
+    }
+  } catch (error) {
+    console.warn('Error fetching issue comments:', error.message);
+  }
+  
+  return null;
+}
+
+// Find place by name
+function findPlaceByName(name, places) {
+  const matches = places.filter(p => 
+    p.title.toLowerCase().trim() === name.toLowerCase().trim()
+  );
+  return matches;
+}
+
+// Update places.json
+function updatePlacesJson(places, newPlace, isUpdate, existingPlace) {
+  if (isUpdate && existingPlace) {
+    // Update existing place - only update fields that are provided
+    const index = places.findIndex(p => p.id === existingPlace.id);
+    if (index !== -1) {
+      const updates = newPlace.updates || {};
+      const updatedPlace = { ...places[index] };
+      
+      // Only update fields that are explicitly provided (not null/undefined)
+      if (updates.description !== undefined && updates.description !== null) {
+        updatedPlace.description = updates.description;
+      }
+      if (updates.address_text !== undefined && updates.address_text !== null) {
+        updatedPlace.address_text = updates.address_text;
+      }
+      if (updates.latitude !== undefined && updates.latitude !== null) {
+        updatedPlace.latitude = parseFloat(updates.latitude);
+      }
+      if (updates.longitude !== undefined && updates.longitude !== null) {
+        updatedPlace.longitude = parseFloat(updates.longitude);
+      }
+      if (updates.cost_per_person !== undefined && updates.cost_per_person !== null) {
+        updatedPlace.cost_per_person = parseInt(updates.cost_per_person);
+      }
+      if (updates.opening_hours !== undefined && updates.opening_hours !== null) {
+        updatedPlace.opening_hours = updates.opening_hours;
+      }
+      if (updates.link !== undefined && updates.link !== null) {
+        updatedPlace.link = updates.link;
+      }
+      if (updates.amenities !== undefined && Array.isArray(updates.amenities)) {
+        updatedPlace.amenities = updates.amenities;
+      } else if (!updatedPlace.amenities) {
+        updatedPlace.amenities = [];
+      }
+      
+      places[index] = updatedPlace;
+    }
+    return places[index];
+  } else {
+    // Add new place
+    const place = {
+      id: generateUniqueSlug(newPlace.title, places),
+      title: newPlace.title,
+      description: newPlace.description || '',
+      address_text: newPlace.address_text,
+      latitude: newPlace.latitude ? parseFloat(newPlace.latitude) : undefined,
+      longitude: newPlace.longitude ? parseFloat(newPlace.longitude) : undefined,
+      cost_per_person: newPlace.cost_per_person ? parseInt(newPlace.cost_per_person) : undefined,
+      opening_hours: newPlace.opening_hours || undefined,
+      link: newPlace.link || '',
+      image: '',
+      amenities: newPlace.amenities || []
+    };
+    places.push(place);
+    return place;
+  }
+}
+
+// Create PR
+async function createPR(place, isUpdate, branchName) {
+  const title = isUpdate ? `Update: ${place.title}` : `Add: ${place.title}`;
+  const body = isUpdate 
+    ? `Updates place information for "${place.title}"\n\nCloses #${ISSUE_NUMBER}`
+    : `Adds new place: "${place.title}"\n\nCloses #${ISSUE_NUMBER}`;
+
+  try {
+    const response = await githubRequest('/pulls', 'POST', {
+      title,
+      body,
+      head: branchName,
+      base: 'main'
+    });
+
+    const prNumber = response.data.number;
+
+    // Assign reviewer (repository owner)
+    try {
+      await githubRequest(`/pulls/${prNumber}/requested_reviewers`, 'POST', {
+        reviewers: [REPO_OWNER]
+      });
+    } catch (e) {
+      console.warn('Failed to assign reviewer:', e.message);
+    }
+
+    return prNumber;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(`Failed to create PR: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+    }
+    throw error;
+  }
+}
+
+// Main execution
+async function main() {
+  try {
+    const isUpdate = ISSUE_TITLE.includes('[更新]') || ISSUE_BODY.includes('更新地点');
+    
+    // Extract data with AI
+    console.log('Extracting place data with AI...');
+    const extractedData = await extractPlaceDataWithAI(ISSUE_BODY, ISSUE_TITLE, isUpdate);
+    
+    // Load existing places
+    const placesPath = path.join(process.cwd(), 'data', 'places.json');
+    const places = JSON.parse(fs.readFileSync(placesPath, 'utf-8'));
+    
+    let place;
+    let existingPlace = null;
+    
+    if (isUpdate) {
+      // Find existing place
+      const matches = findPlaceByName(extractedData.place_name, places);
+      if (matches.length === 0) {
+        throw new Error(`Place "${extractedData.place_name}" not found`);
+      }
+      if (matches.length > 1) {
+        throw new Error(`Multiple places found with name "${extractedData.place_name}". Please be more specific.`);
+      }
+      existingPlace = matches[0];
+    }
+    
+    // Update places.json
+    place = updatePlacesJson(places, extractedData, isUpdate, existingPlace);
+    
+    // Handle image (only for new places)
+    if (!isUpdate && place.image === '') {
+      const imageUrl = await getImageFromIssue();
+      if (imageUrl) {
+        const imageDir = path.join(process.cwd(), 'images', place.id);
+        const imagePath = path.join(imageDir, 'main.jpg');
+        
+        fs.mkdirSync(imageDir, { recursive: true });
+        await downloadImageFromIssue(imageUrl, imagePath);
+        place.image = `${place.id}/main.jpg`;
+      }
+    }
+    
+    // Save places.json
+    fs.writeFileSync(placesPath, JSON.stringify(places, null, 2) + '\n', 'utf-8');
+    
+    // Create branch and commit
+    const branchName = `auto-${isUpdate ? 'update' : 'add'}-${place.id}-${Date.now()}`;
+    execSync(`git config user.name "github-actions[bot]"`, { stdio: 'inherit' });
+    execSync(`git config user.email "github-actions[bot]@users.noreply.github.com"`, { stdio: 'inherit' });
+    execSync(`git checkout -b ${branchName}`, { stdio: 'inherit' });
+    execSync(`git add data/places.json`, { stdio: 'inherit' });
+    
+    if (!isUpdate && place.image) {
+      execSync(`git add images/${place.id}/`, { stdio: 'inherit' });
+    }
+    
+    execSync(`git commit -m "${isUpdate ? 'Update' : 'Add'}: ${place.title}"`, { stdio: 'inherit' });
+    execSync(`git push origin ${branchName}`, { stdio: 'inherit' });
+    
+    // Create PR
+    console.log('Creating PR...');
+    const prNumber = await createPR(place, isUpdate, branchName);
+    
+    // Set outputs for GitHub Actions
+    const outputFile = process.env.GITHUB_OUTPUT;
+    if (outputFile) {
+      fs.appendFileSync(outputFile, `pr_number=${prNumber}\n`);
+      fs.appendFileSync(outputFile, `error=false\n`);
+    } else {
+      // Fallback for local testing
+      console.log(`::set-output name=pr_number::${prNumber}`);
+      console.log(`::set-output name=error::false`);
+    }
+    
+    console.log(`✅ Successfully created PR #${prNumber}`);
+    
+  } catch (error) {
+    console.error('Error:', error.message);
+    const outputFile = process.env.GITHUB_OUTPUT;
+    if (outputFile) {
+      fs.appendFileSync(outputFile, `error=true\n`);
+      fs.appendFileSync(outputFile, `error_message=${error.message.replace(/\n/g, ' ')}\n`);
+    } else {
+      console.log(`::set-output name=error::true`);
+      console.log(`::set-output name=error_message::${error.message.replace(/\n/g, ' ')}`);
+    }
+    process.exit(1);
+  }
+}
+
+main();
+
