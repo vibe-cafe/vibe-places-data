@@ -12,6 +12,9 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const ISSUE_NUMBER = process.env.ISSUE_NUMBER;
 const ISSUE_BODY = process.env.ISSUE_BODY;
 const ISSUE_TITLE = process.env.ISSUE_TITLE;
+const ISSUE_AUTHOR_LOGIN = process.env.ISSUE_AUTHOR_LOGIN;
+const ISSUE_AUTHOR_NAME = process.env.ISSUE_AUTHOR_NAME;
+const ISSUE_AUTHOR_EMAIL = process.env.ISSUE_AUTHOR_EMAIL;
 const REPO_OWNER = process.env.REPO_OWNER;
 const REPO_NAME = process.env.REPO_NAME;
 
@@ -395,8 +398,19 @@ async function main() {
     
     // Create branch and commit
     const branchName = `auto-${isUpdate ? 'update' : 'add'}-${place.id}-${Date.now()}`;
-    execSync(`git config user.name "github-actions[bot]"`, { stdio: 'inherit' });
-    execSync(`git config user.email "github-actions[bot]@users.noreply.github.com"`, { stdio: 'inherit' });
+    
+    // Use contributor's info for commit author if available, otherwise fallback to bot
+    // Use login as fallback for name if name is not available
+    const commitAuthorName = ISSUE_AUTHOR_NAME || ISSUE_AUTHOR_LOGIN || 'github-actions[bot]';
+    const commitAuthorEmail = ISSUE_AUTHOR_EMAIL || (ISSUE_AUTHOR_LOGIN ? `${ISSUE_AUTHOR_LOGIN}@users.noreply.github.com` : 'github-actions[bot]@users.noreply.github.com');
+    
+    // Escape author name and email for git command (replace quotes and backslashes)
+    const escapedAuthorName = commitAuthorName.replace(/"/g, '\\"').replace(/\\/g, '\\\\');
+    const escapedAuthorEmail = commitAuthorEmail.replace(/"/g, '\\"').replace(/\\/g, '\\\\');
+    
+    // Configure git with contributor's info
+    execSync(`git config user.name "${escapedAuthorName}"`, { stdio: 'inherit' });
+    execSync(`git config user.email "${escapedAuthorEmail}"`, { stdio: 'inherit' });
     execSync(`git checkout -b ${branchName}`, { stdio: 'inherit' });
     execSync(`git add data/places.json`, { stdio: 'inherit' });
     
@@ -404,7 +418,10 @@ async function main() {
       execSync(`git add images/${place.id}/`, { stdio: 'inherit' });
     }
     
-    execSync(`git commit -m "${isUpdate ? 'Update' : 'Add'}: ${place.title}"`, { stdio: 'inherit' });
+    // Create commit with contributor as author
+    const commitMessage = `${isUpdate ? 'Update' : 'Add'}: ${place.title}`;
+    const authorString = `${escapedAuthorName} <${escapedAuthorEmail}>`;
+    execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}" --author="${authorString}"`, { stdio: 'inherit' });
     execSync(`git push origin ${branchName}`, { stdio: 'inherit' });
     
     // Set outputs for GitHub Actions (PR will be created by workflow step)

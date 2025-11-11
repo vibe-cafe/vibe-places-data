@@ -26,6 +26,9 @@ jobs:
       issue-number: ${{ steps.check.outputs.issue-number }}
       issue-body: ${{ steps.check.outputs.issue-body }}
       issue-title: ${{ steps.check.outputs.issue-title }}
+      issue-author-login: ${{ steps.check.outputs.issue-author-login }}
+      issue-author-name: ${{ steps.check.outputs.issue-author-name }}
+      issue-author-email: ${{ steps.check.outputs.issue-author-email }}
     steps:
       - name: Check if issue has required labels and no existing PR
         id: check
@@ -80,6 +83,25 @@ jobs:
             core.setOutput('issue-body', issue.data.body || '');
             core.setOutput('issue-title', issue.data.title || '');
             
+            // Get issue author information for attribution
+            if (shouldProcess && issue.data.user) {
+              const author = issue.data.user;
+              core.setOutput('issue-author-login', author.login);
+              core.setOutput('issue-author-name', author.name || author.login);
+              
+              // Try to get user's public email, fallback to GitHub no-reply email
+              try {
+                const userDetails = await github.rest.users.getByUsername({
+                  username: author.login
+                });
+                const email = userDetails.data.email || `${author.login}@users.noreply.github.com`;
+                core.setOutput('issue-author-email', email);
+              } catch (e) {
+                // Fallback to GitHub no-reply email
+                core.setOutput('issue-author-email', `${author.login}@users.noreply.github.com`);
+              }
+            }
+            
             if (!hasRequiredLabels) {
               console.log(`Issue #${issueNumber} does not have required labels (need both "待审核" AND ("新增地点" OR "更新地点")), skipping`);
             } else if (hasExistingPR) {
@@ -123,6 +145,9 @@ jobs:
           ISSUE_NUMBER: ${{ needs.check-labels.outputs.issue-number }}
           ISSUE_BODY: ${{ needs.check-labels.outputs.issue-body }}
           ISSUE_TITLE: ${{ needs.check-labels.outputs.issue-title }}
+          ISSUE_AUTHOR_LOGIN: ${{ needs.check-labels.outputs.issue-author-login }}
+          ISSUE_AUTHOR_NAME: ${{ needs.check-labels.outputs.issue-author-name }}
+          ISSUE_AUTHOR_EMAIL: ${{ needs.check-labels.outputs.issue-author-email }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
@@ -139,11 +164,21 @@ jobs:
             const placeTitle = '${{ steps.process.outputs.place_title }}';
             const isUpdate = '${{ steps.process.outputs.is_update }}' === 'true';
             const issueNumber = ${{ needs.check-labels.outputs.issue-number }};
+            const authorLogin = '${{ needs.check-labels.outputs.issue-author-login }}';
             
             const title = isUpdate ? `Update: ${placeTitle}` : `Add: ${placeTitle}`;
-            const body = isUpdate 
-              ? `Updates place information for "${placeTitle}"\n\nCloses #${issueNumber}`
-              : `Adds new place: "${placeTitle}"\n\nCloses #${issueNumber}`;
+            
+            // Build PR body with contributor attribution
+            let body = isUpdate 
+              ? `Updates place information for "${placeTitle}"\n\n`
+              : `Adds new place: "${placeTitle}"\n\n`;
+            
+            // Add contributor attribution if available
+            if (authorLogin) {
+              body += `Contributed by @${authorLogin}\n\n`;
+            }
+            
+            body += `Closes #${issueNumber}`;
             
             const pr = await github.rest.pulls.create({
               owner: context.repo.owner,
