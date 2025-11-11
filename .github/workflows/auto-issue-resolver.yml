@@ -10,18 +10,24 @@ on:
         required: true
         type: string
 
+# Prevent concurrent runs for the same issue
+concurrency:
+  group: auto-resolver-${{ github.event.inputs.issue_number || github.event.issue.number }}
+  cancel-in-progress: true
+
 jobs:
   check-labels:
     runs-on: ubuntu-latest
     permissions:
       issues: read
+      pull-requests: read
     outputs:
       should-process: ${{ steps.check.outputs.should-process }}
       issue-number: ${{ steps.check.outputs.issue-number }}
       issue-body: ${{ steps.check.outputs.issue-body }}
       issue-title: ${{ steps.check.outputs.issue-title }}
     steps:
-      - name: Check if issue has required labels
+      - name: Check if issue has required labels and no existing PR
         id: check
         uses: actions/github-script@v7
         with:
@@ -41,16 +47,45 @@ jobs:
             const hasNewPlace = labels.includes('新增地点');
             const hasUpdatePlace = labels.includes('更新地点');
             
-            const shouldProcess = hasPendingReview && (hasNewPlace || hasUpdatePlace);
+            // Only process if BOTH required labels are present
+            const hasRequiredLabels = hasPendingReview && (hasNewPlace || hasUpdatePlace);
+            
+            // Check if a PR already exists for this issue
+            let hasExistingPR = false;
+            if (hasRequiredLabels) {
+              const prs = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100
+              });
+              
+              // Check PR body for "Closes #issueNumber"
+              const existingPR = prs.data.find(pr => {
+                const body = pr.body || '';
+                const issueMatch = body.match(/Closes\s+#(\d+)/i);
+                return issueMatch && parseInt(issueMatch[1]) === parseInt(issueNumber);
+              });
+              
+              if (existingPR) {
+                console.log(`PR #${existingPR.number} already exists for issue #${issueNumber}, skipping`);
+                hasExistingPR = true;
+              }
+            }
+            
+            // Only process if both labels are present AND no PR exists
+            const shouldProcess = hasRequiredLabels && !hasExistingPR;
             core.setOutput('should-process', shouldProcess);
             core.setOutput('issue-number', issueNumber);
             core.setOutput('issue-body', issue.data.body || '');
             core.setOutput('issue-title', issue.data.title || '');
             
-            if (shouldProcess) {
-              console.log(`Issue #${issueNumber} has required labels, will process`);
+            if (!hasRequiredLabels) {
+              console.log(`Issue #${issueNumber} does not have required labels (need both "待审核" AND ("新增地点" OR "更新地点")), skipping`);
+            } else if (hasExistingPR) {
+              console.log(`Issue #${issueNumber} already has an open PR, skipping`);
             } else {
-              console.log(`Issue #${issueNumber} does not have required labels, skipping`);
+              console.log(`Issue #${issueNumber} has required labels and no existing PR, will process`);
             }
 
   process-issue:
