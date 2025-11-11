@@ -14,7 +14,12 @@ images/{id}/main.jpg  # 地点图片
 - [📝 添加新地点](../../issues/new?template=new-place.yml)
 - [✏️ 更新地点信息](../../issues/new?template=update-place.yml)
 
-填写表单即可，我们会审核后添加
+填写表单后，系统会自动：
+1. 使用 AI 提取地点信息
+2. 创建 Pull Request
+3. 等待审核合并
+
+你只需要填写表单，剩下的交给自动化流程 ✨
 
 ## 自动部署
 
