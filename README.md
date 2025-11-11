@@ -19,8 +19,6 @@ images/{id}/main.jpg  # 地点图片
 2. 创建 Pull Request
 3. 等待审核合并
 
-你只需要填写表单，剩下的交给自动化流程 ✨
-
 ## 自动部署
 
-合并到 `main` 分支后，会自动触发 [vibecafe.ai](https://vibecafe.ai) 网站重新部署，2-3 分钟内更新生效 ✨
+每个贡献的 Pull Request 被合并到 `main` 分支后，会自动触发 [vibecafe.ai](https://vibecafe.ai) 网站重新部署，2-3 分钟内更新生效 ✨
