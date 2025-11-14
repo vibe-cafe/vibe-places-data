@@ -53,6 +53,19 @@ jobs:
             // Only process if BOTH required labels are present
             const hasRequiredLabels = hasPendingReview && (hasNewPlace || hasUpdatePlace);
             
+            // Exit early if both labels don't exist (prevents duplicate workflow runs)
+            if (!hasRequiredLabels) {
+              console.log(`Issue #${issueNumber} does not have both required labels (need both "待审核" AND ("新增地点" OR "更新地点")), exiting early`);
+              core.setOutput('should-process', 'false');
+              core.setOutput('issue-number', issueNumber);
+              core.setOutput('issue-body', issue.data.body || '');
+              core.setOutput('issue-title', issue.data.title || '');
+              core.setOutput('issue-author-login', '');
+              core.setOutput('issue-author-name', '');
+              core.setOutput('issue-author-email', '');
+              return;
+            }
+            
             // Check if a PR already exists for this issue
             let hasExistingPR = false;
             if (hasRequiredLabels) {
@@ -82,6 +95,13 @@ jobs:
             core.setOutput('issue-number', issueNumber);
             core.setOutput('issue-body', issue.data.body || '');
             core.setOutput('issue-title', issue.data.title || '');
+            
+            // Set default outputs even if not processing (for workflow consistency)
+            if (!shouldProcess) {
+              core.setOutput('issue-author-login', '');
+              core.setOutput('issue-author-name', '');
+              core.setOutput('issue-author-email', '');
+            }
             
             // Get issue author information for attribution
             if (shouldProcess && issue.data.user) {
