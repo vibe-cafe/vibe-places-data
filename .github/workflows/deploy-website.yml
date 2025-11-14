@@ -1,4 +1,4 @@
-name: Deploy Vibe Cafe Website
+name: Deploy to VibeCafé
 
 on:
   push:
