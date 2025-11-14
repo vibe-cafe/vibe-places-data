@@ -43,9 +43,9 @@ The auto issue resolver workflow:
    - Value: Paste your OpenRouter API key
    - Click **Add secret**
    
-   **Optional:** Set a custom model (defaults to `x-ai/grok-code-fast-1`)
+   **Optional:** Set a custom model (defaults to `x-ai/grok-4-fast`)
    - Name: `OPENROUTER_MODEL`
-   - Value: e.g., `x-ai/grok-code-fast-1` (default), `openai/gpt-4o-mini`, `anthropic/claude-3-haiku`, `google/gemini-flash-1.5`
+   - Value: e.g., `x-ai/grok-4-fast` (default), `openai/gpt-4o-mini`, `anthropic/claude-3-haiku`, `google/gemini-flash-1.5`
 
 3. **Create Personal Access Token (Required for PR Creation)**
    
@@ -68,7 +68,7 @@ The auto issue resolver workflow:
    **Important:** The workflow will use `GH_PAT` if available, otherwise fall back to `GITHUB_TOKEN` (which may not work for PR creation).
 
 **Popular OpenRouter Models:**
-- `x-ai/grok-code-fast-1` - Fast and optimized for code/data extraction (default)
+- `x-ai/grok-4-fast` - Fast and optimized for code/data extraction (default)
 - `openai/gpt-4o-mini` - Fast and cheap
 - `anthropic/claude-3-haiku` - Very fast, good quality
 - `google/gemini-flash-1.5` - Fastest, very cheap
@@ -223,7 +223,7 @@ Update Issue Labels (待审核 → 拒绝)
 
 ### Using OpenRouter (Recommended)
 
-**Model: `x-ai/grok-code-fast-1`** (default):
+**Model: `x-ai/grok-4-fast`** (default):
 - Optimized for code and data extraction tasks
 - Fast response times
 - Cost-effective for structured data extraction

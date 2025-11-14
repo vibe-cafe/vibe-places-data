@@ -34,7 +34,7 @@ Add secrets:
 
 **Optional:** Set custom model
 - **Name:** `OPENROUTER_MODEL`
-- **Value:** e.g., `x-ai/grok-code-fast-1` (default), `openai/gpt-4o-mini`, `anthropic/claude-3-haiku`, `google/gemini-flash-1.5`
+- **Value:** e.g., `x-ai/grok-4-fast` (default), `openai/gpt-4o-mini`, `anthropic/claude-3-haiku`, `google/gemini-flash-1.5`
 
 **Required for PR Creation:**
 - **Name:** `GH_PAT`
@@ -106,7 +106,7 @@ To test:
 ## Cost
 
 **OpenRouter (Recommended):**
-- `x-ai/grok-code-fast-1`: ~$0.001-0.01 per issue (default, optimized for data extraction)
+- `x-ai/grok-4-fast`: ~$0.001-0.01 per issue (default, optimized for data extraction)
 - `openai/gpt-4o-mini`: ~$0.001-0.01 per issue
 - `google/gemini-flash-1.5`: ~$0.0005-0.005 per issue (cheapest)
 - `anthropic/claude-3-haiku`: ~$0.001-0.01 per issue

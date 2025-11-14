@@ -7,7 +7,7 @@ const axios = require('axios');
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'x-ai/grok-code-fast-1';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'x-ai/grok-4-fast';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const ISSUE_NUMBER = process.env.ISSUE_NUMBER;
 const ISSUE_BODY = process.env.ISSUE_BODY;
@@ -161,6 +161,7 @@ Return a JSON object with the following structure:
   "link": "url or empty string",
   "amenities": ["array of selected amenities"]
 }
+IMPORTANT: Do NOT extract image data - images are handled separately by downloading from issue attachments.
 Validate that required fields are present. Validate coordinates are numbers. Return only valid JSON.`;
 
   const userPrompt = `Extract place data from this GitHub issue:\n\nTitle: ${issueTitle}\n\nBody:\n${issueBody}`;
@@ -214,7 +215,7 @@ Validate that required fields are present. Validate coordinates are numbers. Ret
   }
 }
 
-// Download image from issue
+// Download image from issue and return the actual file extension
 async function downloadImageFromIssue(imageUrl, imagePath) {
   try {
     const response = await axios({
@@ -226,11 +227,32 @@ async function downloadImageFromIssue(imageUrl, imagePath) {
       }
     });
     
-    const writer = fs.createWriteStream(imagePath);
+    // Detect content type from response headers
+    const contentType = response.headers['content-type'] || '';
+    let extension = 'jpg'; // default
+    
+    if (contentType.includes('png')) {
+      extension = 'png';
+    } else if (contentType.includes('jpeg') || contentType.includes('jpg')) {
+      extension = 'jpg';
+    } else {
+      // Try to detect from URL
+      const urlMatch = imageUrl.match(/\.(jpg|jpeg|png)(\?|$)/i);
+      if (urlMatch) {
+        extension = urlMatch[1].toLowerCase() === 'jpeg' ? 'jpg' : urlMatch[1].toLowerCase();
+      }
+    }
+    
+    // Update image path with correct extension
+    const dir = path.dirname(imagePath);
+    const baseName = path.basename(imagePath, path.extname(imagePath));
+    const finalPath = path.join(dir, `${baseName}.${extension}`);
+    
+    const writer = fs.createWriteStream(finalPath);
     response.data.pipe(writer);
     
     return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
+      writer.on('finish', () => resolve(extension));
       writer.on('error', reject);
     });
   } catch (error) {
@@ -248,30 +270,43 @@ async function getImageFromIssue() {
     // Check all comments for image URLs
     for (const comment of comments) {
       const body = comment.body;
-      // Match GitHub image URLs (user-images.githubusercontent.com)
-      const imageMatch = body.match(/https:\/\/user-images\.githubusercontent\.com\/[^\s\)]+/);
+      // Match GitHub image URLs (user-images.githubusercontent.com) - most common for drag-and-drop
+      const imageMatch = body.match(/https:\/\/user-images\.githubusercontent\.com\/[^\s\)\]]+/);
       if (imageMatch) {
+        console.log(`Found image URL in comment: ${imageMatch[0]}`);
         return imageMatch[0];
       }
     }
     
-    // Check issue body for images
-    const imageMatch = ISSUE_BODY.match(/https:\/\/user-images\.githubusercontent\.com\/[^\s\)]+/);
+    // Check issue body for images (GitHub user-images URLs)
+    const imageMatch = ISSUE_BODY.match(/https:\/\/user-images\.githubusercontent\.com\/[^\s\)\]]+/);
     if (imageMatch) {
+      console.log(`Found image URL in issue body: ${imageMatch[0]}`);
       return imageMatch[0];
     }
     
     // Try markdown image syntax
     const markdownMatch = ISSUE_BODY.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
     if (markdownMatch) {
+      console.log(`Found image URL in markdown: ${markdownMatch[1]}`);
       return markdownMatch[1];
     }
     
     // Try GitHub raw content URLs
-    const rawMatch = ISSUE_BODY.match(/https:\/\/.*?github\.com\/.*?\/raw\/.*?\/(.+\.(jpg|jpeg|png))/i);
+    const rawMatch = ISSUE_BODY.match(/https:\/\/.*?github\.com\/.*?\/raw\/.*?\/(.+\.(jpg|jpeg|png))(\?|$)/i);
     if (rawMatch) {
+      console.log(`Found image URL in raw content: ${rawMatch[0]}`);
       return rawMatch[0];
     }
+    
+    // Try to find any image URL in issue body or comments
+    const anyImageMatch = ISSUE_BODY.match(/(https?:\/\/[^\s\)]+\.(jpg|jpeg|png|gif|webp)(\?[^\s\)]*)?)/i);
+    if (anyImageMatch) {
+      console.log(`Found image URL (any format): ${anyImageMatch[1]}`);
+      return anyImageMatch[1];
+    }
+    
+    console.warn('No image URL found in issue body or comments');
   } catch (error) {
     console.warn('Error fetching issue comments:', error.message);
   }
@@ -382,14 +417,18 @@ async function main() {
     
     // Handle image (only for new places)
     if (!isUpdate && place.image === '') {
+      console.log('Attempting to download image from issue...');
       const imageUrl = await getImageFromIssue();
       if (imageUrl) {
         const imageDir = path.join(process.cwd(), 'images', place.id);
-        const imagePath = path.join(imageDir, 'main.jpg');
+        const imagePath = path.join(imageDir, 'main.jpg'); // Will be updated with correct extension
         
         fs.mkdirSync(imageDir, { recursive: true });
-        await downloadImageFromIssue(imageUrl, imagePath);
-        place.image = `${place.id}/main.jpg`;
+        const extension = await downloadImageFromIssue(imageUrl, imagePath);
+        place.image = `${place.id}/main.${extension}`;
+        console.log(`Image downloaded successfully: ${place.image}`);
+      } else {
+        console.warn('No image found in issue. Place will be added without image.');
       }
     }
     

@@ -17,6 +17,9 @@ concurrency:
 
 jobs:
   check-labels:
+    # Only trigger when "待审核" label is added (completes the requirement)
+    # This prevents duplicate triggers when issue template adds multiple labels at once
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == '待审核'
     runs-on: ubuntu-latest
     permissions:
       issues: read
@@ -159,7 +162,7 @@ jobs:
         env:
           # Use OpenRouter if available, otherwise OpenAI
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL || 'x-ai/grok-code-fast-1' }}
+          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL || 'x-ai/grok-4-fast' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ needs.check-labels.outputs.issue-number }}
