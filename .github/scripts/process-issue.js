@@ -267,11 +267,21 @@ async function getImageFromIssue() {
     const commentsResponse = await githubRequest(`/issues/${ISSUE_NUMBER}/comments`);
     const comments = commentsResponse.data;
     
+    const attachmentPattern = /https:\/\/github\.com\/user-attachments\/assets\/[^\s\)\]]+/;
+    const userImagesPattern = /https:\/\/user-images\.githubusercontent\.com\/[^\s\)\]]+/;
+
     // Check all comments for image URLs
     for (const comment of comments) {
       const body = comment.body;
-      // Match GitHub image URLs (user-images.githubusercontent.com) - most common for drag-and-drop
-      const imageMatch = body.match(/https:\/\/user-images\.githubusercontent\.com\/[^\s\)\]]+/);
+      // Match GitHub attachment URLs (new drag-and-drop format)
+      const attachmentMatch = body.match(attachmentPattern);
+      if (attachmentMatch) {
+        console.log(`Found GitHub attachment URL in comment: ${attachmentMatch[0]}`);
+        return attachmentMatch[0];
+      }
+
+      // Match legacy GitHub image URLs (user-images.githubusercontent.com)
+      const imageMatch = body.match(userImagesPattern);
       if (imageMatch) {
         console.log(`Found image URL in comment: ${imageMatch[0]}`);
         return imageMatch[0];
@@ -279,10 +289,16 @@ async function getImageFromIssue() {
     }
     
     // Check issue body for images (GitHub user-images URLs)
-    const imageMatch = ISSUE_BODY.match(/https:\/\/user-images\.githubusercontent\.com\/[^\s\)\]]+/);
-    if (imageMatch) {
-      console.log(`Found image URL in issue body: ${imageMatch[0]}`);
-      return imageMatch[0];
+    const bodyAttachmentMatch = ISSUE_BODY.match(attachmentPattern);
+    if (bodyAttachmentMatch) {
+      console.log(`Found GitHub attachment URL in issue body: ${bodyAttachmentMatch[0]}`);
+      return bodyAttachmentMatch[0];
+    }
+
+    const bodyImageMatch = ISSUE_BODY.match(userImagesPattern);
+    if (bodyImageMatch) {
+      console.log(`Found image URL in issue body: ${bodyImageMatch[0]}`);
+      return bodyImageMatch[0];
     }
     
     // Try markdown image syntax
