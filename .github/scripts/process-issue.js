@@ -215,12 +215,18 @@ Validate that required fields are present. Validate coordinates are numbers. Ret
   }
 }
 
+function sanitizeUrl(url) {
+  if (!url) return url;
+  return url.trim().replace(/^[<"'`]+/, '').replace(/[>"'`]+$/, '');
+}
+
 // Download image from issue and return the actual file extension
 async function downloadImageFromIssue(imageUrl, imagePath) {
   try {
+    const sanitizedUrl = sanitizeUrl(imageUrl);
     const response = await axios({
       method: 'GET',
-      url: imageUrl,
+      url: sanitizedUrl,
       responseType: 'stream',
       headers: {
         'User-Agent': 'GitHub-Actions'
@@ -276,50 +282,57 @@ async function getImageFromIssue() {
       // Match GitHub attachment URLs (new drag-and-drop format)
       const attachmentMatch = body.match(attachmentPattern);
       if (attachmentMatch) {
-        console.log(`Found GitHub attachment URL in comment: ${attachmentMatch[0]}`);
-        return attachmentMatch[0];
+        const url = sanitizeUrl(attachmentMatch[0]);
+        console.log(`Found GitHub attachment URL in comment: ${url}`);
+        return url;
       }
 
       // Match legacy GitHub image URLs (user-images.githubusercontent.com)
       const imageMatch = body.match(userImagesPattern);
       if (imageMatch) {
-        console.log(`Found image URL in comment: ${imageMatch[0]}`);
-        return imageMatch[0];
+        const url = sanitizeUrl(imageMatch[0]);
+        console.log(`Found image URL in comment: ${url}`);
+        return url;
       }
     }
     
     // Check issue body for images (GitHub user-images URLs)
     const bodyAttachmentMatch = ISSUE_BODY.match(attachmentPattern);
     if (bodyAttachmentMatch) {
-      console.log(`Found GitHub attachment URL in issue body: ${bodyAttachmentMatch[0]}`);
-      return bodyAttachmentMatch[0];
+      const url = sanitizeUrl(bodyAttachmentMatch[0]);
+      console.log(`Found GitHub attachment URL in issue body: ${url}`);
+      return url;
     }
 
     const bodyImageMatch = ISSUE_BODY.match(userImagesPattern);
     if (bodyImageMatch) {
-      console.log(`Found image URL in issue body: ${bodyImageMatch[0]}`);
-      return bodyImageMatch[0];
+      const url = sanitizeUrl(bodyImageMatch[0]);
+      console.log(`Found image URL in issue body: ${url}`);
+      return url;
     }
     
     // Try markdown image syntax
     const markdownMatch = ISSUE_BODY.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
     if (markdownMatch) {
-      console.log(`Found image URL in markdown: ${markdownMatch[1]}`);
-      return markdownMatch[1];
+      const url = sanitizeUrl(markdownMatch[1]);
+      console.log(`Found image URL in markdown: ${url}`);
+      return url;
     }
     
     // Try GitHub raw content URLs
     const rawMatch = ISSUE_BODY.match(/https:\/\/.*?github\.com\/.*?\/raw\/.*?\/(.+\.(jpg|jpeg|png))(\?|$)/i);
     if (rawMatch) {
-      console.log(`Found image URL in raw content: ${rawMatch[0]}`);
-      return rawMatch[0];
+      const url = sanitizeUrl(rawMatch[0]);
+      console.log(`Found image URL in raw content: ${url}`);
+      return url;
     }
     
     // Try to find any image URL in issue body or comments
     const anyImageMatch = ISSUE_BODY.match(/(https?:\/\/[^\s\)]+\.(jpg|jpeg|png|gif|webp)(\?[^\s\)]*)?)/i);
     if (anyImageMatch) {
-      console.log(`Found image URL (any format): ${anyImageMatch[1]}`);
-      return anyImageMatch[1];
+      const url = sanitizeUrl(anyImageMatch[1]);
+      console.log(`Found image URL (any format): ${url}`);
+      return url;
     }
     
     console.warn('No image URL found in issue body or comments');
