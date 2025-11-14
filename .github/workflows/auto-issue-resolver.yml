@@ -1,5 +1,7 @@
 name: Auto Issue Resolver
 
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('[Manually] - Issue {0}{1}', '#', github.event.inputs.issue_number) || github.event.issue.title }}
+
 on:
   issues:
     types: [labeled]
@@ -33,7 +35,7 @@ jobs:
       issue-author-name: ${{ steps.check.outputs.issue-author-name }}
       issue-author-email: ${{ steps.check.outputs.issue-author-email }}
     steps:
-      - name: Check if issue has required labels and no existing PR
+      - name: Check required labels and collect issue data
         id: check
         uses: actions/github-script@v7
         with:
@@ -69,31 +71,8 @@ jobs:
               return;
             }
             
-            // Check if a PR already exists for this issue
-            let hasExistingPR = false;
-            if (hasRequiredLabels) {
-              const prs = await github.rest.pulls.list({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'open',
-                per_page: 100
-              });
-              
-              // Check PR body for "Closes #issueNumber"
-              const existingPR = prs.data.find(pr => {
-                const body = pr.body || '';
-                const issueMatch = body.match(/Closes\s+#(\d+)/i);
-                return issueMatch && parseInt(issueMatch[1]) === parseInt(issueNumber);
-              });
-              
-              if (existingPR) {
-                console.log(`PR #${existingPR.number} already exists for issue #${issueNumber}, skipping`);
-                hasExistingPR = true;
-              }
-            }
-            
-            // Only process if both labels are present AND no PR exists
-            const shouldProcess = hasRequiredLabels && !hasExistingPR;
+            // Only process if both labels are present
+            const shouldProcess = hasRequiredLabels;
             core.setOutput('should-process', shouldProcess);
             core.setOutput('issue-number', issueNumber);
             core.setOutput('issue-body', issue.data.body || '');
@@ -127,10 +106,8 @@ jobs:
             
             if (!hasRequiredLabels) {
               console.log(`Issue #${issueNumber} does not have required labels (need both "待审核" AND ("新增地点" OR "更新地点")), skipping`);
-            } else if (hasExistingPR) {
-              console.log(`Issue #${issueNumber} already has an open PR, skipping`);
             } else {
-              console.log(`Issue #${issueNumber} has required labels and no existing PR, will process`);
+              console.log(`Issue #${issueNumber} has required labels, will process`);
             }
 
   process-issue:
