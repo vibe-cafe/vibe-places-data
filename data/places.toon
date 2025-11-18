@@ -1,4 +1,4 @@
-[20]:
+[21]:
   - id: a7b2c9d4-e8f1-4a6b-9c3d-2e5f8a1b4c7
     title: 南五咖啡
     description: 望京地区的精品咖啡店，环境舒适，适合工作和创作
@@ -204,4 +204,15 @@
     opening_hours: "10:00-21:30"
     link: ""
     image: 8721323a-b516-471a-8f53-48121419451c/main.png
+    amenities[6]: 有稳定的 WiFi 网络,桌子、座椅舒适,允许长时间停留工作,有电源插座可用,环境相对安静,店内有洗手间
+  - id: d1ac6daf-0bc1-487c-a87a-718f5eb6fa11
+    title: 上海图书馆（东馆）
+    description: 科技感拉满，预约制座位，插座管够，尤其推荐F3空间
+    address_text: 上海市合欢路300号
+    latitude: 31.2397
+    longitude: 121.4975
+    cost_per_person: null
+    opening_hours: "09:00-20:30"
+    link: ""
+    image: d1ac6daf-0bc1-487c-a87a-718f5eb6fa11/main.png
     amenities[6]: 有稳定的 WiFi 网络,桌子、座椅舒适,允许长时间停留工作,有电源插座可用,环境相对安静,店内有洗手间
