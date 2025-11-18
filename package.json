@@ -1,0 +1,24 @@
+{
+  "name": "vibe-places-data",
+  "version": "1.0.0",
+  "description": "🌍 适合 Vibe Friends 的创作空间数据库，可以访问 https://vibecafe.ai/places 体验",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vibe-cafe/vibe-places-data.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/vibe-cafe/vibe-places-data/issues"
+  },
+  "homepage": "https://github.com/vibe-cafe/vibe-places-data#readme",
+  "dependencies": {
+    "@toon-format/toon": "^1.0.0"
+  }
+}

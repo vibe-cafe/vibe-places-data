@@ -5,7 +5,7 @@
 ## 结构
 
 ```
-data/places.json    # 地点数据
+data/places.toon    # 地点数据 (TOON format - 节省 token 空间)
 images/{id}/main.jpg  # 地点图片
 ```
 

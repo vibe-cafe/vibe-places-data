@@ -132,7 +132,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm install axios
+          npm install axios @toon-format/toon
 
       - name: Process issue
         id: process
