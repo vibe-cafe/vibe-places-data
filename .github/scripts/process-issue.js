@@ -467,8 +467,8 @@ async function main() {
     }
     
     // Save places.toon (TOON format)
-    const toonContent = encode(places);
-    fs.writeFileSync(toonPath, toonContent, 'utf-8');
+    const encodedToonContent = encode(places);
+    fs.writeFileSync(toonPath, encodedToonContent, 'utf-8');
     
     // Create branch and commit
     const branchName = `auto-${isUpdate ? 'update' : 'add'}-${place.id}-${Date.now()}`;
