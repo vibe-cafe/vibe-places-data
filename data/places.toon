@@ -209,8 +209,8 @@
     title: 上海图书馆（东馆）
     description: 科技感拉满，预约制座位，插座管够，尤其推荐F3空间
     address_text: 上海市合欢路300号
-    latitude: 31.2397
-    longitude: 121.4975
+    latitude: 31.22217
+    longitude: 121.54286
     cost_per_person: null
     opening_hours: "09:00-20:30"
     link: ""
