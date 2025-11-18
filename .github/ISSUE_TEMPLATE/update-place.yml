@@ -1,7 +1,7 @@
 name: ✏️ 更新地点信息
 description: 更新已有地点的信息（地址、营业时间等）
 title: "[更新] "
-labels: ["更新地点", "待审核"]
+labels: ["待审核"]
 body:
   - type: markdown
     attributes:

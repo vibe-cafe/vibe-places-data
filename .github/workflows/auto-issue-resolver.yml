@@ -18,10 +18,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-labels:
-    # Only trigger when "待审核" label is added (completes the requirement)
-    # This prevents duplicate triggers when issue template adds multiple labels at once
+  # Filter job: Only process when STATE label "待审核" is added
+  # Label structure:
+  #   - State labels (workflow state management): '待审核', '通过', '拒绝'
+  # This prevents duplicate workflow runs when multiple labels are added simultaneously
+  # The concurrency group will handle any remaining edge cases
+  filter-label:
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == '待审核'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm state label check
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Processing workflow via manual dispatch"
+          else
+            echo "Processing workflow for state label: ${{ github.event.label.name }}"
+          fi
+
+  check-labels:
+    needs: filter-label
+    # Verify that issue has required state label: '待审核' (already filtered above)
     runs-on: ubuntu-latest
     permissions:
       issues: read
@@ -51,16 +67,13 @@ jobs:
             });
             
             const labels = issue.data.labels.map(l => l.name);
+            
+            // Check for state label: '待审核' (required to trigger processing)
             const hasPendingReview = labels.includes('待审核');
-            const hasNewPlace = labels.includes('新增地点');
-            const hasUpdatePlace = labels.includes('更新地点');
             
-            // Only process if BOTH required labels are present
-            const hasRequiredLabels = hasPendingReview && (hasNewPlace || hasUpdatePlace);
-            
-            // Exit early if both labels don't exist (prevents duplicate workflow runs)
-            if (!hasRequiredLabels) {
-              console.log(`Issue #${issueNumber} does not have both required labels (need both "待审核" AND ("新增地点" OR "更新地点")), exiting early`);
+            // Exit early if state label doesn't exist
+            if (!hasPendingReview) {
+              console.log(`Issue #${issueNumber} does not have required state label "待审核" - skipping`);
               core.setOutput('should-process', 'false');
               core.setOutput('issue-number', issueNumber);
               core.setOutput('issue-body', issue.data.body || '');
@@ -71,8 +84,8 @@ jobs:
               return;
             }
             
-            // Only process if both labels are present
-            const shouldProcess = hasRequiredLabels;
+            // Process if state label is present
+            const shouldProcess = hasPendingReview;
             core.setOutput('should-process', shouldProcess);
             core.setOutput('issue-number', issueNumber);
             core.setOutput('issue-body', issue.data.body || '');
@@ -104,10 +117,10 @@ jobs:
               }
             }
             
-            if (!hasRequiredLabels) {
-              console.log(`Issue #${issueNumber} does not have required labels (need both "待审核" AND ("新增地点" OR "更新地点")), skipping`);
+            if (!shouldProcess) {
+              console.log(`Issue #${issueNumber} missing required state label - skipping`);
             } else {
-              console.log(`Issue #${issueNumber} has required labels, will process`);
+              console.log(`Issue #${issueNumber} has required state label "待审核" - will process`);
             }
 
   process-issue:
