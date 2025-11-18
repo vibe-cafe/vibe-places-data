@@ -423,18 +423,13 @@ async function main() {
     console.log('Extracting place data with AI...');
     const extractedData = await extractPlaceDataWithAI(ISSUE_BODY, ISSUE_TITLE, isUpdate);
     
-    // Load existing places (TOON format, fallback to JSON)
+    // Load existing places (TOON format)
     const toonPath = path.join(process.cwd(), 'data', 'places.toon');
-    const jsonPath = path.join(process.cwd(), 'data', 'places.json');
-    let places;
-    if (fs.existsSync(toonPath)) {
-      const toonContent = fs.readFileSync(toonPath, 'utf-8');
-      places = decode(toonContent);
-    } else if (fs.existsSync(jsonPath)) {
-      places = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-    } else {
-      throw new Error('Neither places.toon nor places.json found');
+    if (!fs.existsSync(toonPath)) {
+      throw new Error('places.toon not found');
     }
+    const toonContent = fs.readFileSync(toonPath, 'utf-8');
+    const places = decode(toonContent);
     
     let place;
     let existingPlace = null;
@@ -475,11 +470,6 @@ async function main() {
     const toonContent = encode(places);
     fs.writeFileSync(toonPath, toonContent, 'utf-8');
     
-    // Also save as JSON for backward compatibility (optional, can be removed later)
-    if (fs.existsSync(jsonPath)) {
-      fs.writeFileSync(jsonPath, JSON.stringify(places, null, 2) + '\n', 'utf-8');
-    }
-    
     // Create branch and commit
     const branchName = `auto-${isUpdate ? 'update' : 'add'}-${place.id}-${Date.now()}`;
     
@@ -497,10 +487,6 @@ async function main() {
     execSync(`git config user.email "${escapedAuthorEmail}"`, { stdio: 'inherit' });
     execSync(`git checkout -b ${branchName}`, { stdio: 'inherit' });
     execSync(`git add data/places.toon`, { stdio: 'inherit' });
-    // Also add JSON if it exists (for backward compatibility)
-    if (fs.existsSync(jsonPath)) {
-      execSync(`git add data/places.json`, { stdio: 'inherit' });
-    }
     
     if (!isUpdate && place.image) {
       execSync(`git add images/${place.id}/`, { stdio: 'inherit' });
