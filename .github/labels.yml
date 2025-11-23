@@ -12,6 +12,11 @@
   description: "更新已有地点的信息"
   aliases: ["update"]
 
+- name: "新增地点（截图）"
+  color: "8E44AD"
+  description: "通过截图添加新的创作空间"
+  aliases: ["new-place-screenshot"]
+
 # 状态标签
 - name: "待审核"
   color: "FBCA04"

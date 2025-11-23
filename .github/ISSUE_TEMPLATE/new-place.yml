@@ -76,7 +76,6 @@ body:
         请上传一张展示地点环境的照片（拖拽图片到此处）
         - 格式：JPG 或 PNG
         - 建议尺寸：1200x800
-        - 文件大小：< 500KB
     validations:
       required: true
       

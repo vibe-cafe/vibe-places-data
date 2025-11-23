@@ -8,7 +8,7 @@ const { encode, decode } = require('@toon-format/toon');
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'x-ai/grok-4-fast';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'x-ai/grok-4.1-fast';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const ISSUE_NUMBER = process.env.ISSUE_NUMBER;
 const ISSUE_BODY = process.env.ISSUE_BODY;
@@ -16,6 +16,8 @@ const ISSUE_TITLE = process.env.ISSUE_TITLE;
 const ISSUE_AUTHOR_LOGIN = process.env.ISSUE_AUTHOR_LOGIN;
 const ISSUE_AUTHOR_NAME = process.env.ISSUE_AUTHOR_NAME;
 const ISSUE_AUTHOR_EMAIL = process.env.ISSUE_AUTHOR_EMAIL;
+const ISSUE_LABELS = process.env.ISSUE_LABELS || '[]';
+const IS_SCREENSHOT = process.env.IS_SCREENSHOT === 'true';
 const REPO_OWNER = process.env.REPO_OWNER;
 const REPO_NAME = process.env.REPO_NAME;
 
@@ -77,11 +79,22 @@ function generateUniqueID(places) {
   return id;
 }
 
-// Parse issue body to extract form data
+// Parse issue body to extract form data (especially amenities checkboxes)
 function parseIssueBody(body) {
   const data = {};
   const lines = body.split('\n');
   let currentField = null;
+  let inAmenitiesSection = false;
+  
+  // Map of checkbox labels to amenity values
+  const amenityMap = {
+    '有稳定的 WiFi 网络': '有稳定的 WiFi 网络',
+    '桌子、座椅舒适': '桌子、座椅舒适',
+    '允许长时间停留工作': '允许长时间停留工作',
+    '有电源插座可用': '有电源插座可用',
+    '环境相对安静': '环境相对安静',
+    '店内有洗手间': '店内有洗手间'
+  };
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -93,32 +106,54 @@ function parseIssueBody(body) {
       // Map Chinese labels to field names
       if (fieldName.includes('地点名称') || fieldName.includes('名称')) {
         currentField = 'title';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('描述')) {
         currentField = 'description';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('地址')) {
         currentField = 'address_text';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('纬度')) {
         currentField = 'latitude';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('经度')) {
         currentField = 'longitude';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('人均消费') || fieldName.includes('消费')) {
         currentField = 'cost_per_person';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('营业时间') || fieldName.includes('时间')) {
         currentField = 'opening_hours';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('链接') || fieldName.includes('link')) {
         currentField = 'link';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('照片') || fieldName.includes('图片') || fieldName.includes('image')) {
         currentField = 'image';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('设施') || fieldName.includes('amenities')) {
         currentField = 'amenities';
+        inAmenitiesSection = true;
+        if (!data.amenities) {
+          data.amenities = [];
+        }
       } else {
         currentField = null;
+        inAmenitiesSection = false;
       }
       continue;
     }
     
-    // Extract value
-    if (currentField && line && !line.startsWith('###') && !line.startsWith('**')) {
+    // Extract checkbox values (for amenities)
+    if (inAmenitiesSection && line.startsWith('- [x]')) {
+      const checkboxText = line.replace(/^- \[x\]\s*/, '').trim();
+      if (amenityMap[checkboxText] && !data.amenities.includes(amenityMap[checkboxText])) {
+        data.amenities.push(amenityMap[checkboxText]);
+      }
+    }
+    
+    // Extract other field values
+    if (currentField && !inAmenitiesSection && line && !line.startsWith('###') && !line.startsWith('**') && !line.startsWith('-')) {
       if (!data[currentField]) {
         data[currentField] = line;
       } else {
@@ -128,6 +163,115 @@ function parseIssueBody(body) {
   }
   
   return data;
+}
+
+// Extract place data from screenshot using vision API
+async function extractPlaceDataFromScreenshot(imagePath) {
+  console.log('Extracting place data from screenshot using vision API...');
+  
+  // Read image and convert to base64
+  const imageBuffer = fs.readFileSync(imagePath);
+  const imageBase64 = imageBuffer.toString('base64');
+  
+  // Detect image MIME type from file extension
+  const ext = path.extname(imagePath).toLowerCase();
+  let mimeType = 'image/jpeg';
+  if (ext === '.png') {
+    mimeType = 'image/png';
+  } else if (ext === '.jpg' || ext === '.jpeg') {
+    mimeType = 'image/jpeg';
+  }
+  
+  const systemPrompt = `You are a data extraction assistant specialized in reading Chinese place information from screenshots.
+Extract place information from screenshots of Chinese mapping/review apps like 大众点评, 高德地图, 百度地图, etc.
+
+Return a JSON object with the following structure:
+{
+  "title": "place name (required, extract from Chinese text)",
+  "description": "description or empty string",
+  "address_text": "full address in Chinese (required)",
+  "latitude": number or null (if visible in screenshot),
+  "longitude": number or null (if visible in screenshot),
+  "cost_per_person": number or null (extract from 人均消费 or similar),
+  "opening_hours": "HH:MM-HH:MM format or null (extract from 营业时间 or similar)",
+  "link": "url or empty string (if visible)",
+  "amenities": ["array of amenities inferred from visible information"]
+}
+
+IMPORTANT:
+- Read all Chinese text carefully from the screenshot
+- Extract coordinates if visible, otherwise leave as null
+- For opening hours, convert to HH:MM-HH:MM format (e.g., "09:00-22:00")
+- For cost_per_person, extract the number only (e.g., if you see "人均消费：45元", return 45)
+- For amenities, infer from visible information (WiFi, power outlets, quiet environment, etc.)
+- Return only valid JSON.`;
+
+  const userPrompt = `Extract place information from this screenshot. Read all Chinese text carefully and extract all available details.`;
+
+  try {
+    // Use OpenRouter with grok-4.1-fast for screenshot extraction
+    const apiUrl = USE_OPENROUTER 
+      ? 'https://openrouter.ai/api/v1/chat/completions'
+      : 'https://api.openai.com/v1/chat/completions';
+    
+    // Use OPENROUTER_MODEL (defaults to x-ai/grok-4.1-fast)
+    const visionModel = USE_OPENROUTER 
+      ? (OPENROUTER_MODEL || 'x-ai/grok-4.1-fast')
+      : 'gpt-4o-mini'; // Fallback for OpenAI direct (shouldn't happen in practice)
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${AI_API_KEY}`
+    };
+    
+    // OpenRouter recommends HTTP-Referer header
+    if (USE_OPENROUTER) {
+      headers['HTTP-Referer'] = `https://github.com/${REPO_OWNER}/${REPO_NAME}`;
+      headers['X-Title'] = 'Vibe Places Data Auto Resolver';
+    }
+    
+    const response = await axios.post(
+      apiUrl,
+      {
+        model: visionModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${imageBase64}`
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.3,
+        response_format: { type: 'json_object' }
+      },
+      { headers }
+    );
+
+    if (response.data.error) {
+      const apiName = USE_OPENROUTER ? 'OpenRouter' : 'OpenAI';
+      throw new Error(`${apiName} API error: ${response.data.error.message}`);
+    }
+
+    const content = response.data.choices[0].message.content;
+    const extractedData = JSON.parse(content);
+    
+    console.log('Successfully extracted data from screenshot:', JSON.stringify(extractedData, null, 2));
+    return extractedData;
+  } catch (error) {
+    if (error.response) {
+      const apiName = USE_OPENROUTER ? 'OpenRouter' : 'OpenAI';
+      throw new Error(`${apiName} API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+    }
+    throw error;
+  }
 }
 
 // Use AI to extract and validate place data
@@ -419,9 +563,62 @@ async function main() {
   try {
     const isUpdate = ISSUE_TITLE.includes('[更新]') || ISSUE_BODY.includes('更新地点');
     
-    // Extract data with AI
-    console.log('Extracting place data with AI...');
-    const extractedData = await extractPlaceDataWithAI(ISSUE_BODY, ISSUE_TITLE, isUpdate);
+    // Screenshot mode: extract data from screenshot image
+    let extractedData;
+    let screenshotPath = null;
+    let screenshotExtension = null;
+    
+    if (IS_SCREENSHOT) {
+      console.log('Screenshot mode detected. Extracting data from screenshot...');
+      
+      // Screenshot mode only supports new places (not updates)
+      if (isUpdate) {
+        throw new Error('Screenshot mode is only supported for new places, not updates');
+      }
+      
+      // Download screenshot first
+      console.log('Downloading screenshot from issue...');
+      const imageUrl = await getImageFromIssue();
+      if (!imageUrl) {
+        throw new Error('No screenshot found in issue. Please upload a screenshot image, or use the "添加新地点" template if you prefer to fill in fields manually.');
+      }
+      
+      // Create temporary directory for screenshot
+      const tempDir = path.join(process.cwd(), 'temp');
+      fs.mkdirSync(tempDir, { recursive: true });
+      const tempImagePath = path.join(tempDir, 'screenshot.jpg');
+      
+      // Download image (will detect correct extension)
+      screenshotExtension = await downloadImageFromIssue(imageUrl, tempImagePath);
+      screenshotPath = path.join(tempDir, `screenshot.${screenshotExtension}`);
+      if (screenshotPath !== tempImagePath) {
+        // Rename if extension was corrected
+        if (fs.existsSync(tempImagePath)) {
+          fs.renameSync(tempImagePath, screenshotPath);
+        }
+      }
+      
+      console.log(`Screenshot downloaded: ${screenshotPath}`);
+      
+      // Extract data from screenshot using vision API
+      extractedData = await extractPlaceDataFromScreenshot(screenshotPath);
+      
+      // Merge with manual form fields (especially amenities)
+      console.log('Checking for manual form field overrides...');
+      const manualFields = parseIssueBody(ISSUE_BODY);
+      
+      // Merge amenities: manual overrides AI
+      if (manualFields.amenities && Array.isArray(manualFields.amenities) && manualFields.amenities.length > 0) {
+        console.log(`Found manual amenities: ${manualFields.amenities.join(', ')}`);
+        extractedData.amenities = manualFields.amenities;
+      }
+      
+      console.log('Final extracted data:', JSON.stringify(extractedData, null, 2));
+    } else {
+      // Text mode: extract data from issue form text
+      console.log('Extracting place data with AI from text...');
+      extractedData = await extractPlaceDataWithAI(ISSUE_BODY, ISSUE_TITLE, isUpdate);
+    }
     
     // Load existing places (TOON format)
     const toonPath = path.join(process.cwd(), 'data', 'places.toon');
@@ -451,18 +648,41 @@ async function main() {
     
     // Handle image (only for new places)
     if (!isUpdate && place.image === '') {
-      console.log('Attempting to download image from issue...');
-      const imageUrl = await getImageFromIssue();
-      if (imageUrl) {
+      if (IS_SCREENSHOT && screenshotPath) {
+        // In screenshot mode, reuse the already downloaded screenshot
+        console.log('Moving screenshot to final location...');
         const imageDir = path.join(process.cwd(), 'images', place.id);
-        const imagePath = path.join(imageDir, 'main.jpg'); // Will be updated with correct extension
-        
         fs.mkdirSync(imageDir, { recursive: true });
-        const extension = await downloadImageFromIssue(imageUrl, imagePath);
-        place.image = `${place.id}/main.${extension}`;
-        console.log(`Image downloaded successfully: ${place.image}`);
+        const finalImagePath = path.join(imageDir, `main.${screenshotExtension}`);
+        
+        // Copy screenshot to final location
+        fs.copyFileSync(screenshotPath, finalImagePath);
+        place.image = `${place.id}/main.${screenshotExtension}`;
+        console.log(`Screenshot saved successfully: ${place.image}`);
+        
+        // Clean up temporary file
+        if (fs.existsSync(screenshotPath)) {
+          fs.unlinkSync(screenshotPath);
+        }
+        const tempDir = path.dirname(screenshotPath);
+        if (fs.existsSync(tempDir)) {
+          fs.rmdirSync(tempDir);
+        }
       } else {
-        console.warn('No image found in issue. Place will be added without image.');
+        // Text mode: download image from issue
+        console.log('Attempting to download image from issue...');
+        const imageUrl = await getImageFromIssue();
+        if (imageUrl) {
+          const imageDir = path.join(process.cwd(), 'images', place.id);
+          const imagePath = path.join(imageDir, 'main.jpg'); // Will be updated with correct extension
+          
+          fs.mkdirSync(imageDir, { recursive: true });
+          const extension = await downloadImageFromIssue(imageUrl, imagePath);
+          place.image = `${place.id}/main.${extension}`;
+          console.log(`Image downloaded successfully: ${place.image}`);
+        } else {
+          console.warn('No image found in issue. Place will be added without image.');
+        }
       }
     }
     

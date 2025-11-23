@@ -13,16 +13,22 @@ on:
         type: string
 
 # Prevent concurrent runs for the same issue
+# When templates add multiple labels (e.g., ["待审核", "新增地点（截图）"]), GitHub fires separate events.
+# The filter job ensures we only process when "待审核" is added, and concurrency prevents duplicate runs.
 concurrency:
   group: auto-resolver-${{ github.event.inputs.issue_number || github.event.issue.number }}
   cancel-in-progress: true
 
 jobs:
   # Filter job: Only process when STATE label "待审核" is added
+  # This prevents runs when only type labels are added (e.g., if "新增地点（截图）" is added before "待审核")
   # Label structure:
+  #   - Type labels (content type): '新增地点', '更新地点', '新增地点（截图）'
   #   - State labels (workflow state management): '待审核', '通过', '拒绝'
-  # This prevents duplicate workflow runs when multiple labels are added simultaneously
-  # The concurrency group will handle any remaining edge cases
+  # Protection layers:
+  #   1. Filter job: Only runs when "待审核" label is added (not type labels)
+  #   2. Concurrency group: Prevents multiple runs for same issue (cancels in-progress)
+  #   3. Label validation: check-labels job verifies both labels exist before processing
   filter-label:
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == '待审核'
     runs-on: ubuntu-latest
@@ -50,6 +56,8 @@ jobs:
       issue-author-login: ${{ steps.check.outputs.issue-author-login }}
       issue-author-name: ${{ steps.check.outputs.issue-author-name }}
       issue-author-email: ${{ steps.check.outputs.issue-author-email }}
+      issue-labels: ${{ steps.check.outputs.issue-labels }}
+      is-screenshot: ${{ steps.check.outputs.is-screenshot }}
     steps:
       - name: Check required labels and collect issue data
         id: check
@@ -68,10 +76,44 @@ jobs:
             
             const labels = issue.data.labels.map(l => l.name);
             
+            // Define type labels and state labels
+            const typeLabels = ['新增地点', '更新地点', '新增地点（截图）'];
+            const stateLabels = ['待审核', '通过', '拒绝'];
+            
             // Check for state label: '待审核' (required to trigger processing)
             const hasPendingReview = labels.includes('待审核');
             
-            // Exit early if state label doesn't exist
+            // Validate exactly one type label
+            const typeLabelsFound = labels.filter(l => typeLabels.includes(l));
+            if (typeLabelsFound.length === 0) {
+              console.log(`Issue #${issueNumber} missing required type label (新增地点, 更新地点, or 新增地点（截图）) - skipping`);
+              core.setOutput('should-process', 'false');
+              core.setOutput('issue-number', issueNumber);
+              core.setOutput('issue-body', issue.data.body || '');
+              core.setOutput('issue-title', issue.data.title || '');
+              core.setOutput('issue-author-login', '');
+              core.setOutput('issue-author-name', '');
+              core.setOutput('issue-author-email', '');
+              core.setOutput('issue-labels', JSON.stringify(labels));
+              core.setOutput('is-screenshot', 'false');
+              return;
+            }
+            
+            if (typeLabelsFound.length > 1) {
+              console.log(`Issue #${issueNumber} has multiple type labels: ${typeLabelsFound.join(', ')} - skipping`);
+              core.setOutput('should-process', 'false');
+              core.setOutput('issue-number', issueNumber);
+              core.setOutput('issue-body', issue.data.body || '');
+              core.setOutput('issue-title', issue.data.title || '');
+              core.setOutput('issue-author-login', '');
+              core.setOutput('issue-author-name', '');
+              core.setOutput('issue-author-email', '');
+              core.setOutput('issue-labels', JSON.stringify(labels));
+              core.setOutput('is-screenshot', 'false');
+              return;
+            }
+            
+            // Check for state label: '待审核' (required to trigger processing)
             if (!hasPendingReview) {
               console.log(`Issue #${issueNumber} does not have required state label "待审核" - skipping`);
               core.setOutput('should-process', 'false');
@@ -81,8 +123,13 @@ jobs:
               core.setOutput('issue-author-login', '');
               core.setOutput('issue-author-name', '');
               core.setOutput('issue-author-email', '');
+              core.setOutput('issue-labels', JSON.stringify(labels));
+              core.setOutput('is-screenshot', 'false');
               return;
             }
+            
+            // Detect screenshot mode
+            const isScreenshot = typeLabelsFound[0] === '新增地点（截图）';
             
             // Process if state label is present
             const shouldProcess = hasPendingReview;
@@ -90,6 +137,8 @@ jobs:
             core.setOutput('issue-number', issueNumber);
             core.setOutput('issue-body', issue.data.body || '');
             core.setOutput('issue-title', issue.data.title || '');
+            core.setOutput('issue-labels', JSON.stringify(labels));
+            core.setOutput('is-screenshot', isScreenshot.toString());
             
             // Set default outputs even if not processing (for workflow consistency)
             if (!shouldProcess) {
@@ -120,7 +169,8 @@ jobs:
             if (!shouldProcess) {
               console.log(`Issue #${issueNumber} missing required state label - skipping`);
             } else {
-              console.log(`Issue #${issueNumber} has required state label "待审核" - will process`);
+              const mode = isScreenshot ? 'screenshot mode' : 'text mode';
+              console.log(`Issue #${issueNumber} has required state label "待审核" - will process in ${mode}`);
             }
 
   process-issue:
@@ -152,7 +202,7 @@ jobs:
         env:
           # Use OpenRouter if available, otherwise OpenAI
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL || 'x-ai/grok-4-fast' }}
+          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL || 'x-ai/grok-4.1-fast' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ needs.check-labels.outputs.issue-number }}
@@ -161,6 +211,8 @@ jobs:
           ISSUE_AUTHOR_LOGIN: ${{ needs.check-labels.outputs.issue-author-login }}
           ISSUE_AUTHOR_NAME: ${{ needs.check-labels.outputs.issue-author-name }}
           ISSUE_AUTHOR_EMAIL: ${{ needs.check-labels.outputs.issue-author-email }}
+          ISSUE_LABELS: ${{ needs.check-labels.outputs.issue-labels }}
+          IS_SCREENSHOT: ${{ needs.check-labels.outputs.is-screenshot }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
