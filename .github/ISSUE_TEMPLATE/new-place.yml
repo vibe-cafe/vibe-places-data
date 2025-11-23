@@ -1,7 +1,7 @@
 name: 🏠 添加新地点
 description: 推荐一个适合 Vibe Friends 的创作空间
 title: "[新地点] "
-labels: ["待审核"]
+labels: ["待审核", "新增地点"]
 body:
   - type: markdown
     attributes:

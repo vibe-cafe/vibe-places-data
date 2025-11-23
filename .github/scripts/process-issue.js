@@ -615,7 +615,7 @@ async function main() {
       // First image is screenshot (for extraction)
       const screenshotUrl = allImages[0];
       // Second image is place photo (for storage)
-      const placeImageUrl = allImages[1];
+      placeImageUrl = allImages[1];
       
       console.log(`Found ${allImages.length} image(s). Using first as screenshot, second as place photo.`);
       
@@ -638,9 +638,6 @@ async function main() {
       
       // Extract data from screenshot using vision API
       extractedData = await extractPlaceDataFromScreenshot(screenshotPath);
-      
-      // Store place image URL for later use (will download separately)
-      placeImageUrl = allImages[1];
       
       // Merge with manual form fields (especially amenities)
       console.log('Checking for manual form field overrides...');
