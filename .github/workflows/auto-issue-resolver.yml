@@ -202,7 +202,7 @@ jobs:
         env:
           # Use OpenRouter if available, otherwise OpenAI
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL || 'x-ai/grok-4.1-fast' }}
+          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL || 'google/gemini-2.5-flash' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ needs.check-labels.outputs.issue-number }}

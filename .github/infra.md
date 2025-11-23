@@ -5,7 +5,7 @@ Automated workflow that processes GitHub issues to add/update place information 
 ## Overview
 
 When an issue is labeled with `待审核` + a type label (`新增地点`, `更新地点`, or `新增地点（截图）`), the workflow:
-1. Extracts place data using AI (OpenRouter + `x-ai/grok-4.1-fast`)
+1. Extracts place data using AI (OpenRouter + `google/gemini-2.5-flash`)
 2. Downloads images from issue attachments
 3. Creates a Pull Request with the changes
 4. Updates labels when PR is merged/rejected
@@ -16,7 +16,7 @@ When an issue is labeled with `待审核` + a type label (`新增地点`, `更�
 
 1. Get API key from [OpenRouter.ai](https://openrouter.ai/keys)
 2. Add GitHub secret: `OPENROUTER_API_KEY`
-3. Optional: Set `OPENROUTER_MODEL` (defaults to `x-ai/grok-4.1-fast`)
+3. Optional: Set `OPENROUTER_MODEL` (defaults to `google/gemini-2.5-flash`)
 
 ### 2. Configure GitHub Token
 
@@ -67,7 +67,7 @@ Issue → Download screenshot → Extract from image → Merge amenities → Cre
 ## AI Integration
 
 - **Provider**: OpenRouter
-- **Model**: `x-ai/grok-4.1-fast` (for all tasks)
+- **Model**: `google/gemini-2.5-flash` (for all tasks)
 - **Cost**: ~$0.001-0.01 per issue
 
 ## Troubleshooting

@@ -8,7 +8,7 @@ const { encode, decode } = require('@toon-format/toon');
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'x-ai/grok-4.1-fast';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const ISSUE_NUMBER = process.env.ISSUE_NUMBER;
 const ISSUE_BODY = process.env.ISSUE_BODY;
@@ -188,38 +188,33 @@ async function extractPlaceDataFromScreenshot(imagePath) {
   const systemPrompt = `You are a data extraction assistant specialized in reading Chinese place information from screenshots.
 Extract place information from screenshots of Chinese mapping/review apps like 大众点评, 高德地图, 百度地图, etc.
 
-Return a JSON object with the following structure:
+Return a JSON object with ONLY the following structure:
 {
   "title": "place name (required, extract from Chinese text)",
-  "description": "description or empty string",
   "address_text": "full address in Chinese (required)",
-  "latitude": number or null (if visible in screenshot),
-  "longitude": number or null (if visible in screenshot),
   "cost_per_person": number or null (extract from 人均消费 or similar),
-  "opening_hours": "HH:MM-HH:MM format or null (extract from 营业时间 or similar)",
-  "link": "url or empty string (if visible)",
-  "amenities": ["array of amenities inferred from visible information"]
+  "opening_hours": "HH:MM-HH:MM format or null (extract from 营业时间 or similar)"
 }
 
 IMPORTANT:
 - Read all Chinese text carefully from the screenshot
-- Extract coordinates if visible, otherwise leave as null
+- Extract ONLY these 4 fields: title, address_text, cost_per_person, opening_hours
 - For opening hours, convert to HH:MM-HH:MM format (e.g., "09:00-22:00")
 - For cost_per_person, extract the number only (e.g., if you see "人均消费：45元", return 45)
-- For amenities, infer from visible information (WiFi, power outlets, quiet environment, etc.)
-- Return only valid JSON.`;
+- Do NOT extract description, coordinates, links, or amenities
+- Return only valid JSON with these 4 fields.`;
 
-  const userPrompt = `Extract place information from this screenshot. Read all Chinese text carefully and extract all available details.`;
+  const userPrompt = `Extract only these 4 fields from this screenshot: title, address_text, cost_per_person, and opening_hours. Read all Chinese text carefully and extract these specific details.`;
 
   try {
-    // Use OpenRouter with grok-4.1-fast for screenshot extraction
+    // Use OpenRouter with google/gemini-2.5-flash for screenshot extraction
     const apiUrl = USE_OPENROUTER 
       ? 'https://openrouter.ai/api/v1/chat/completions'
       : 'https://api.openai.com/v1/chat/completions';
     
-    // Use OPENROUTER_MODEL (defaults to x-ai/grok-4.1-fast)
+    // Use OPENROUTER_MODEL (defaults to google/gemini-2.5-flash)
     const visionModel = USE_OPENROUTER 
-      ? (OPENROUTER_MODEL || 'x-ai/grok-4.1-fast')
+      ? (OPENROUTER_MODEL || 'google/gemini-2.5-flash')
       : 'gpt-4o-mini'; // Fallback for OpenAI direct (shouldn't happen in practice)
     
     const headers = {
