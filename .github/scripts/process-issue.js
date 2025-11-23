@@ -414,11 +414,85 @@ async function downloadImageFromIssue(imageUrl, imagePath) {
   }
 }
 
-// Get all image URLs from issue (returns array)
+// Get images from issue body, preserving field association
+function getImagesFromIssueBody(body) {
+  const images = { screenshot: null, placePhoto: null };
+  const lines = body.split('\n');
+  let currentField = null;
+  
+  const attachmentPattern = /https:\/\/github\.com\/user-attachments\/assets\/[^\s\)\]]+/g;
+  const userImagesPattern = /https:\/\/user-images\.githubusercontent\.com\/[^\s\)\]]+/g;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Match field labels
+    const fieldMatch = line.match(/^(?:###|\*\*)\s*(.+?)(?:\*\*)?$/);
+    if (fieldMatch) {
+      const fieldName = fieldMatch[1].trim();
+      if (fieldName.includes('截图') || fieldName.includes('screenshot')) {
+        currentField = 'screenshot';
+      } else if (fieldName.includes('照片') || fieldName.includes('图片') || fieldName.includes('image')) {
+        currentField = 'placePhoto';
+      } else {
+        currentField = null;
+      }
+      continue;
+    }
+    
+    // Extract image URL from current field
+    if (currentField) {
+      let imageUrl = null;
+      
+      // Try GitHub attachment URLs
+      const attachmentMatch = line.match(attachmentPattern);
+      if (attachmentMatch) {
+        imageUrl = sanitizeUrl(attachmentMatch[0]);
+      }
+      
+      // Try legacy GitHub image URLs
+      if (!imageUrl) {
+        const imageMatch = line.match(userImagesPattern);
+        if (imageMatch) {
+          imageUrl = sanitizeUrl(imageMatch[0]);
+        }
+      }
+      
+      // Try markdown image syntax
+      if (!imageUrl) {
+        const markdownMatch = line.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
+        if (markdownMatch) {
+          imageUrl = sanitizeUrl(markdownMatch[1]);
+        }
+      }
+      
+      if (imageUrl && !images[currentField]) {
+        images[currentField] = imageUrl;
+        console.log(`Found ${currentField === 'screenshot' ? 'screenshot' : 'place photo'} image: ${imageUrl}`);
+      }
+    }
+  }
+  
+  return images;
+}
+
+// Get all image URLs from issue (returns array, for backward compatibility)
 async function getAllImagesFromIssue() {
   const images = [];
   try {
-    // Get issue comments to find image attachments
+    // First, try to get images from issue body with field association (for screenshot mode)
+    if (IS_SCREENSHOT) {
+      const fieldImages = getImagesFromIssueBody(ISSUE_BODY);
+      if (fieldImages.screenshot) images.push(fieldImages.screenshot);
+      if (fieldImages.placePhoto) images.push(fieldImages.placePhoto);
+      
+      if (images.length > 0) {
+        console.log(`Found ${images.length} image(s) from issue body fields`);
+        return images;
+      }
+    }
+    
+    // Fallback: Get issue comments to find image attachments
     const commentsResponse = await githubRequest(`/issues/${ISSUE_NUMBER}/comments`);
     const comments = commentsResponse.data;
     
@@ -601,23 +675,24 @@ async function main() {
         throw new Error('Screenshot mode is only supported for new places, not updates');
       }
       
-      // Get all images from issue
+      // Get images from issue body, preserving field association
       console.log('Downloading images from issue...');
-      const allImages = await getAllImagesFromIssue();
-      if (allImages.length === 0) {
-        throw new Error('No images found in issue. Please upload a screenshot and place photo, or use the "添加新地点" template if you prefer to fill in fields manually.');
+      const fieldImages = getImagesFromIssueBody(ISSUE_BODY);
+      
+      if (!fieldImages.screenshot) {
+        throw new Error('No screenshot image found. Please upload an image to the "地点页面截图" field.');
       }
       
-      if (allImages.length < 2) {
-        throw new Error('Please upload both a screenshot (for AI extraction) and a place photo (for display).');
+      if (!fieldImages.placePhoto) {
+        throw new Error('No place photo found. Please upload an image to the "地点照片" field.');
       }
       
-      // First image is screenshot (for extraction)
-      const screenshotUrl = allImages[0];
-      // Second image is place photo (for storage)
-      placeImageUrl = allImages[1];
+      // Use field-specific images
+      const screenshotUrl = fieldImages.screenshot;
+      placeImageUrl = fieldImages.placePhoto;
       
-      console.log(`Found ${allImages.length} image(s). Using first as screenshot, second as place photo.`);
+      console.log(`Found screenshot: ${screenshotUrl}`);
+      console.log(`Found place photo: ${placeImageUrl}`);
       
       // Create temporary directory for screenshot
       const tempDir = path.join(process.cwd(), 'temp');
