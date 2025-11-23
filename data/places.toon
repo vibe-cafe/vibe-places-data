@@ -1,4 +1,4 @@
-[21]:
+[22]:
   - id: a7b2c9d4-e8f1-4a6b-9c3d-2e5f8a1b4c7
     title: 南五咖啡
     description: 望京地区的精品咖啡店，环境舒适，适合工作和创作
@@ -215,4 +215,15 @@
     opening_hours: "09:00-20:30"
     link: ""
     image: d1ac6daf-0bc1-487c-a87a-718f5eb6fa11/main.png
+    amenities[6]: 有稳定的 WiFi 网络,桌子、座椅舒适,允许长时间停留工作,有电源插座可用,环境相对安静,店内有洗手间
+  - id: 420a6466-bbd3-4a5f-8b2e-44d3722aae48
+    title: 滿滿MAAN咖啡
+    description: 青岛特色
+    address_text: 山东省青岛市市南区山东路18号万科中心2层206
+    latitude: null
+    longitude: null
+    cost_per_person: 45
+    opening_hours: "10:00-22:00"
+    link: ""
+    image: 420a6466-bbd3-4a5f-8b2e-44d3722aae48/main.jpg
     amenities[6]: 有稳定的 WiFi 网络,桌子、座椅舒适,允许长时间停留工作,有电源插座可用,环境相对安静,店内有洗手间
