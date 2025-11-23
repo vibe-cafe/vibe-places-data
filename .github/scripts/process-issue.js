@@ -128,6 +128,9 @@ function parseIssueBody(body) {
       } else if (fieldName.includes('链接') || fieldName.includes('link')) {
         currentField = 'link';
         inAmenitiesSection = false;
+      } else if (fieldName.includes('截图') || fieldName.includes('screenshot')) {
+        currentField = 'screenshot';
+        inAmenitiesSection = false;
       } else if (fieldName.includes('照片') || fieldName.includes('图片') || fieldName.includes('image')) {
         currentField = 'image';
         inAmenitiesSection = false;
@@ -411,81 +414,102 @@ async function downloadImageFromIssue(imageUrl, imagePath) {
   }
 }
 
-// Get image URL from issue
-async function getImageFromIssue() {
+// Get all image URLs from issue (returns array)
+async function getAllImagesFromIssue() {
+  const images = [];
   try {
     // Get issue comments to find image attachments
     const commentsResponse = await githubRequest(`/issues/${ISSUE_NUMBER}/comments`);
     const comments = commentsResponse.data;
     
-    const attachmentPattern = /https:\/\/github\.com\/user-attachments\/assets\/[^\s\)\]]+/;
-    const userImagesPattern = /https:\/\/user-images\.githubusercontent\.com\/[^\s\)\]]+/;
+    const attachmentPattern = /https:\/\/github\.com\/user-attachments\/assets\/[^\s\)\]]+/g;
+    const userImagesPattern = /https:\/\/user-images\.githubusercontent\.com\/[^\s\)\]]+/g;
 
     // Check all comments for image URLs
     for (const comment of comments) {
       const body = comment.body;
-      // Match GitHub attachment URLs (new drag-and-drop format)
-      const attachmentMatch = body.match(attachmentPattern);
-      if (attachmentMatch) {
-        const url = sanitizeUrl(attachmentMatch[0]);
-        console.log(`Found GitHub attachment URL in comment: ${url}`);
-        return url;
+      // Match all GitHub attachment URLs
+      const attachmentMatches = body.match(attachmentPattern);
+      if (attachmentMatches) {
+        attachmentMatches.forEach(match => {
+          const url = sanitizeUrl(match);
+          if (!images.includes(url)) images.push(url);
+        });
       }
 
-      // Match legacy GitHub image URLs (user-images.githubusercontent.com)
-      const imageMatch = body.match(userImagesPattern);
-      if (imageMatch) {
-        const url = sanitizeUrl(imageMatch[0]);
-        console.log(`Found image URL in comment: ${url}`);
-        return url;
+      // Match all legacy GitHub image URLs
+      const imageMatches = body.match(userImagesPattern);
+      if (imageMatches) {
+        imageMatches.forEach(match => {
+          const url = sanitizeUrl(match);
+          if (!images.includes(url)) images.push(url);
+        });
       }
     }
     
-    // Check issue body for images (GitHub user-images URLs)
-    const bodyAttachmentMatch = ISSUE_BODY.match(attachmentPattern);
-    if (bodyAttachmentMatch) {
-      const url = sanitizeUrl(bodyAttachmentMatch[0]);
-      console.log(`Found GitHub attachment URL in issue body: ${url}`);
-      return url;
+    // Check issue body for images
+    const bodyAttachmentMatches = ISSUE_BODY.match(attachmentPattern);
+    if (bodyAttachmentMatches) {
+      bodyAttachmentMatches.forEach(match => {
+        const url = sanitizeUrl(match);
+        if (!images.includes(url)) images.push(url);
+      });
     }
 
-    const bodyImageMatch = ISSUE_BODY.match(userImagesPattern);
-    if (bodyImageMatch) {
-      const url = sanitizeUrl(bodyImageMatch[0]);
-      console.log(`Found image URL in issue body: ${url}`);
-      return url;
+    const bodyImageMatches = ISSUE_BODY.match(userImagesPattern);
+    if (bodyImageMatches) {
+      bodyImageMatches.forEach(match => {
+        const url = sanitizeUrl(match);
+        if (!images.includes(url)) images.push(url);
+      });
     }
     
     // Try markdown image syntax
-    const markdownMatch = ISSUE_BODY.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
-    if (markdownMatch) {
-      const url = sanitizeUrl(markdownMatch[1]);
-      console.log(`Found image URL in markdown: ${url}`);
-      return url;
+    const markdownMatches = ISSUE_BODY.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/g);
+    if (markdownMatches) {
+      markdownMatches.forEach(match => {
+        const urlMatch = match.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
+        if (urlMatch) {
+          const url = sanitizeUrl(urlMatch[1]);
+          if (!images.includes(url)) images.push(url);
+        }
+      });
     }
     
     // Try GitHub raw content URLs
-    const rawMatch = ISSUE_BODY.match(/https:\/\/.*?github\.com\/.*?\/raw\/.*?\/(.+\.(jpg|jpeg|png))(\?|$)/i);
-    if (rawMatch) {
-      const url = sanitizeUrl(rawMatch[0]);
-      console.log(`Found image URL in raw content: ${url}`);
-      return url;
+    const rawMatches = ISSUE_BODY.match(/https:\/\/.*?github\.com\/.*?\/raw\/.*?\/(.+\.(jpg|jpeg|png))(\?|$)/gi);
+    if (rawMatches) {
+      rawMatches.forEach(match => {
+        const url = sanitizeUrl(match);
+        if (!images.includes(url)) images.push(url);
+      });
     }
     
-    // Try to find any image URL in issue body or comments
-    const anyImageMatch = ISSUE_BODY.match(/(https?:\/\/[^\s\)]+\.(jpg|jpeg|png|gif|webp)(\?[^\s\)]*)?)/i);
-    if (anyImageMatch) {
-      const url = sanitizeUrl(anyImageMatch[1]);
-      console.log(`Found image URL (any format): ${url}`);
-      return url;
+    // Try to find any image URL in issue body
+    const anyImageMatches = ISSUE_BODY.match(/(https?:\/\/[^\s\)]+\.(jpg|jpeg|png|gif|webp)(\?[^\s\)]*)?)/gi);
+    if (anyImageMatches) {
+      anyImageMatches.forEach(match => {
+        const url = sanitizeUrl(match);
+        if (!images.includes(url)) images.push(url);
+      });
     }
     
-    console.warn('No image URL found in issue body or comments');
+    if (images.length === 0) {
+      console.warn('No image URLs found in issue body or comments');
+    } else {
+      console.log(`Found ${images.length} image(s) in issue`);
+    }
   } catch (error) {
     console.warn('Error fetching issue comments:', error.message);
   }
   
-  return null;
+  return images;
+}
+
+// Get image URL from issue (returns first image for backward compatibility)
+async function getImageFromIssue() {
+  const images = await getAllImagesFromIssue();
+  return images.length > 0 ? images[0] : null;
 }
 
 // Find place by name
@@ -567,6 +591,7 @@ async function main() {
     let extractedData;
     let screenshotPath = null;
     let screenshotExtension = null;
+    let placeImageUrl = null;
     
     if (IS_SCREENSHOT) {
       console.log('Screenshot mode detected. Extracting data from screenshot...');
@@ -576,20 +601,31 @@ async function main() {
         throw new Error('Screenshot mode is only supported for new places, not updates');
       }
       
-      // Download screenshot first
-      console.log('Downloading screenshot from issue...');
-      const imageUrl = await getImageFromIssue();
-      if (!imageUrl) {
-        throw new Error('No screenshot found in issue. Please upload a screenshot image, or use the "添加新地点" template if you prefer to fill in fields manually.');
+      // Get all images from issue
+      console.log('Downloading images from issue...');
+      const allImages = await getAllImagesFromIssue();
+      if (allImages.length === 0) {
+        throw new Error('No images found in issue. Please upload a screenshot and place photo, or use the "添加新地点" template if you prefer to fill in fields manually.');
       }
+      
+      if (allImages.length < 2) {
+        throw new Error('Please upload both a screenshot (for AI extraction) and a place photo (for display).');
+      }
+      
+      // First image is screenshot (for extraction)
+      const screenshotUrl = allImages[0];
+      // Second image is place photo (for storage)
+      const placeImageUrl = allImages[1];
+      
+      console.log(`Found ${allImages.length} image(s). Using first as screenshot, second as place photo.`);
       
       // Create temporary directory for screenshot
       const tempDir = path.join(process.cwd(), 'temp');
       fs.mkdirSync(tempDir, { recursive: true });
       const tempImagePath = path.join(tempDir, 'screenshot.jpg');
       
-      // Download image (will detect correct extension)
-      screenshotExtension = await downloadImageFromIssue(imageUrl, tempImagePath);
+      // Download screenshot (will detect correct extension)
+      screenshotExtension = await downloadImageFromIssue(screenshotUrl, tempImagePath);
       screenshotPath = path.join(tempDir, `screenshot.${screenshotExtension}`);
       if (screenshotPath !== tempImagePath) {
         // Rename if extension was corrected
@@ -602,6 +638,9 @@ async function main() {
       
       // Extract data from screenshot using vision API
       extractedData = await extractPlaceDataFromScreenshot(screenshotPath);
+      
+      // Store place image URL for later use (will download separately)
+      placeImageUrl = allImages[1];
       
       // Merge with manual form fields (especially amenities)
       console.log('Checking for manual form field overrides...');
@@ -648,25 +687,28 @@ async function main() {
     
     // Handle image (only for new places)
     if (!isUpdate && place.image === '') {
-      if (IS_SCREENSHOT && screenshotPath) {
-        // In screenshot mode, reuse the already downloaded screenshot
-        console.log('Moving screenshot to final location...');
+      if (IS_SCREENSHOT && placeImageUrl) {
+        // In screenshot mode, download place photo (second image)
+        console.log('Downloading place photo (second image)...');
         const imageDir = path.join(process.cwd(), 'images', place.id);
         fs.mkdirSync(imageDir, { recursive: true });
-        const finalImagePath = path.join(imageDir, `main.${screenshotExtension}`);
+        const imagePath = path.join(imageDir, 'main.jpg'); // Will be updated with correct extension
         
-        // Copy screenshot to final location
-        fs.copyFileSync(screenshotPath, finalImagePath);
-        place.image = `${place.id}/main.${screenshotExtension}`;
-        console.log(`Screenshot saved successfully: ${place.image}`);
+        const extension = await downloadImageFromIssue(placeImageUrl, imagePath);
+        place.image = `${place.id}/main.${extension}`;
+        console.log(`Place photo saved successfully: ${place.image}`);
         
-        // Clean up temporary file
-        if (fs.existsSync(screenshotPath)) {
+        // Clean up temporary screenshot file
+        if (screenshotPath && fs.existsSync(screenshotPath)) {
           fs.unlinkSync(screenshotPath);
         }
         const tempDir = path.dirname(screenshotPath);
         if (fs.existsSync(tempDir)) {
-          fs.rmdirSync(tempDir);
+          try {
+            fs.rmdirSync(tempDir);
+          } catch (e) {
+            // Ignore if directory not empty
+          }
         }
       } else {
         // Text mode: download image from issue

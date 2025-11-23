@@ -8,20 +8,14 @@ body:
       value: |
         感谢推荐新地点！只需上传地点页面的截图，AI会自动识别并提取信息。
         
-        **支持的平台：**
-        - 大众点评
-        - 高德地图
-        - 百度地图
-        - 其他地图/点评应用
-        
-        **使用说明：**
-        1. 打开任意地图或点评应用
-        2. 找到要推荐的地点页面
-        3. 截图整个页面（包含地点名称、地址、营业时间等信息）
-        4. 上传截图，AI会自动提取所有信息
-        
-        **提示：** 如果没有截图，也可以使用「添加新地点」模板手动填写。
-        
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: 地点页面截图
+      description: 上传大众点评、高德地图、百度地图等应用的地点页面截图（拖拽图片到此处）
+    validations:
+      required: true
+      
   - type: textarea
     id: image
     attributes:
@@ -30,24 +24,14 @@ body:
         请上传一张展示地点环境的照片（拖拽图片到此处）
         - 格式：JPG 或 PNG
         - 建议尺寸：1200x800
-        - **提示：** 如果上传地图/点评应用的页面截图，AI会自动提取地点信息
+    validations:
+      required: true
       
-  - type: markdown
-    attributes:
-      value: |
-        ---
-        
-        **以下字段为可选**，用于补充AI无法从截图中提取的信息：
-        
   - type: checkboxes
     id: amenities
     attributes:
-      label: 设施与环境（可选）
-      description: |
-        请勾选该地点具备的设施和环境特征
-        
-        **注意：** 这些信息通常无法从截图中直接看到，需要您根据实际体验填写。
-        如果AI提取的信息有误，您也可以在PR中直接修改。
+      label: 设施与环境
+      description: 请勾选该地点具备的设施和环境特征
       options:
         - label: 有稳定的 WiFi 网络
         - label: 桌子、座椅舒适
