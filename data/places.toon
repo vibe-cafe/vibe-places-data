@@ -211,7 +211,7 @@
     address_text: 上海市合欢路300号
     latitude: 31.22217
     longitude: 121.54286
-    cost_per_person: null
+    cost_per_person: 0
     opening_hours: "09:00-20:30"
     link: ""
     image: d1ac6daf-0bc1-487c-a87a-718f5eb6fa11/main.png
